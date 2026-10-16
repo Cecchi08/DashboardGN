@@ -1,0 +1,14 @@
+{
+  "name": "dashboard-cotizador-backend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "API Express y generador de datos para Dashboard Cotizador",
+  "scripts": {
+    "build:data": "node scripts/build.js",
+    "start": "node backend/src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

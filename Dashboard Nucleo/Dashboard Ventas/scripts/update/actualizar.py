@@ -518,6 +518,8 @@ if aging_file:
         fp.write('const __AGING__ = ' + json.dumps(aging_data, ensure_ascii=False, separators=(',', ':')) + ';\n')
         fp.write('const __AGING_BUCKETS__ = ["0-30 días","30-60 días","60-90 días","90-150 días","150-365 días","+365 días"];\n')
         fp.write('const __AGING_COLORS__ = ["#10b981","#84cc16","#eab308","#f59e0b","#ef4444","#7c2d12"];\n')
+    with open(INTERNAL_DIR / "aging.json", 'w', encoding='utf-8') as fp:
+        json.dump(aging_data, fp, ensure_ascii=False, separators=(',', ':'))
 
     total_units = sum(e['ag'] for e in aging_data.values())
     total_ars = sum(e['ars'] for e in aging_data.values())
@@ -562,12 +564,19 @@ elif sinrot_file:
     AG_JS = INTERNAL_DIR / "aging.js"
     with open(AG_JS, 'w', encoding='utf-8') as fp:
         fp.write('const __SIN_ROT__ = ' + json.dumps(sr_out, ensure_ascii=False, separators=(',', ':')) + ';\n')
+    with open(INTERNAL_DIR / "aging.json", 'w', encoding='utf-8') as fp:
+        json.dump(sr_out, fp, ensure_ascii=False, separators=(',', ':'))
     print(f"  Códigos sin rotación: {len(sr_out)}")
     print(f"  Unidades muertas:     {sum(v['sr'] for v in sr_out.values()):,.0f}")
 
 # ============================================================
 # 6. Rebuild the HTML dashboards
 # ============================================================
+if os.environ.get("BUILD_DASHBOARD_HTML", "1") == "0":
+    print("\nGeneración HTML omitida: el frontend de producción se sirve con React.")
+    print(f"Datos JSON listos en {INTERNAL_DIR}.")
+    sys.exit(0)
+
 print("\n--- Generando HTMLs ---")
 
 # Template and build scripts live in src/templates/ and scripts/build/.
@@ -601,13 +610,15 @@ local_assets = SCRIPT_DIR / "dist" / "local" / "_internal"
 local_assets.mkdir(parents=True, exist_ok=True)
 for asset in (DATA_JS, AG_JS):
     shutil.copy2(asset, local_assets / asset.name)
+chart_asset = SCRIPT_DIR / "src" / "vendor" / "chart.umd.js"
+shutil.copy2(chart_asset, local_assets / "chart.umd.js")
 
 # ============================================================
 # 7. Regenerar las versiones autónomas (HTML standalone)
 #    si está el script inline_dashboards.py
 # ============================================================
 inline_script = build_dir / "inline_dashboards.py"
-if inline_script.exists():
+if inline_script.exists() and os.environ.get("BUILD_STANDALONE", "1") != "0":
     print("\n--- Regenerando versiones autónomas (standalone) ---")
     result = subprocess.run([sys.executable, str(inline_script)], env=env, capture_output=True, text=True)
     if result.returncode != 0:

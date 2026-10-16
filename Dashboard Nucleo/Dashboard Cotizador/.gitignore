@@ -1,0 +1,7 @@
+node_modules/
+dist/
+data/input/archive/
+~$*.xlsx
+*.tmp
+*.tsbuildinfo
+.env

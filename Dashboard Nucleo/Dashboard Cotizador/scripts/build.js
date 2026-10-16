@@ -11,7 +11,7 @@ const { num, clean, cleanCode } = require('../src/data/normalizers');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP_DIR = path.join(ROOT, 'src', 'app');
-const DOCS_DIR = path.join(ROOT, 'docs');
+const DOCS_DIR = path.join(ROOT, 'data', 'input');
 const DIST_DIR = path.join(ROOT, 'dist');
 
 // Patrones de los archivos de origen. Buscamos la versión más reciente por
@@ -233,7 +233,7 @@ for (const [code, ag] of agingMap.entries()) {
 }
 
 // ============================================================
-// 6) Empaquetar y escribir cotizador.html
+// 6) Escribir el catálogo que consume la API
 // ============================================================
 function mtime(f) {
   try { return fs.statSync(path.join(DOCS_DIR, f)).mtime.toISOString(); }
@@ -267,30 +267,10 @@ console.log('Artículos consolidados:', data.articulos.length,
   '· con Lista 8:', countLista8,
   '· con aging:', countAging);
 
-const tpl = fs.readFileSync(path.join(APP_DIR, 'template.html'), 'utf8');
-const styles = fs.readFileSync(path.join(APP_DIR, 'styles', 'main.css'), 'utf8');
-const scriptFiles = [
-  '01-runtime.js',
-  '02-catalog.js',
-  '03-quote.js',
-  '04-listing.js',
-  '05-export.js',
-  '06-app.js',
-];
-const appScript = scriptFiles
-  .map(file => fs.readFileSync(path.join(APP_DIR, 'scripts', file), 'utf8'))
-  .join('\n\n');
-const safeData = JSON.stringify(data)
-  .replace(/</g, '\\u003c')
-  .replace(/>/g, '\\u003e')
-  .replace(/&/g, '\\u0026');
-const out = tpl
-  .replace('<!-- APP_STYLES -->', () => `<style>\n${styles}\n</style>`)
-  .replace('<!-- APP_SCRIPT -->', () => `<script>\n${appScript.replace('__DATA_JSON__', () => safeData)}\n</script>`);
 if (!fs.existsSync(DIST_DIR)) fs.mkdirSync(DIST_DIR, { recursive: true });
-const outPath = path.join(DIST_DIR, 'cotizador.html');
-fs.writeFileSync(outPath, out, 'utf8');
-console.log('OK ->', outPath, '(', (out.length / 1024).toFixed(1), 'KB )');
+const outPath = path.join(DIST_DIR, 'catalog.json');
+fs.writeFileSync(outPath, JSON.stringify(data), 'utf8');
+console.log('OK ->', outPath, '(', (fs.statSync(outPath).size / 1024).toFixed(1), 'KB )');
 
 // ============================================================
 // 7) Archivar versiones anteriores de los archivos de origen

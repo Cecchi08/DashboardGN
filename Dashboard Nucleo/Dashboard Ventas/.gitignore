@@ -1,18 +1,15 @@
-# Local credentials and deployment settings
-config/*.json
-
-# Business data and generated datasets
-docs/data/input/*.xlsx
-docs/data/archive/*.xlsx
-data/processed/*
-data/cache/
-
-# Build output and local caches
+node_modules/
 dist/
+data/cache/
+data/processed/
 .cache/
 .wrangler/
+config/
+docs/data/archive/*.xlsx
+docs/data/input/*.xlsx
+.env
 __pycache__/
 *.py[cod]
+*.tsbuildinfo
 ~$*.xlsx
 .~lock.*
-*.tmp

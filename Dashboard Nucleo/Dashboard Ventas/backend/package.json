@@ -1,0 +1,8 @@
+{
+  "name": "dashboard-ventas-backend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "API Express y servidor de activos de Dashboard Ventas",
+  "scripts": { "start": "node src/server.js" },
+  "dependencies": { "express": "^5.1.0" }
+}

@@ -1,0 +1,48 @@
+name: dashboard-nucleo
+
+services:
+  cotizador-api:
+    build:
+      context: ./Dashboard Nucleo/Dashboard Cotizador
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "1234:1234"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:1234/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cotizador-web:
+    build:
+      context: ./Dashboard Nucleo/Dashboard Cotizador/frontend
+    restart: unless-stopped
+    depends_on:
+      cotizador-api:
+        condition: service_healthy
+    ports:
+      - "1235:80"
+
+  ventas-api:
+    build:
+      context: ./Dashboard Nucleo/Dashboard Ventas
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4321/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ventas-web:
+    build:
+      context: ./Dashboard Nucleo/Dashboard Ventas/frontend
+    restart: unless-stopped
+    depends_on:
+      ventas-api:
+        condition: service_healthy
+    ports:
+      - "5321:80"
