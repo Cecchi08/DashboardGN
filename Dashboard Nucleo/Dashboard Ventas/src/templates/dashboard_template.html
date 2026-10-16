@@ -1,0 +1,2966 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Ventas - Núcleo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#0f172a; --bg-2:#1e293b; --bg-3:#334155; --border:#475569;
+    --text:#f1f5f9; --text-dim:#94a3b8;
+    --accent:#3b82f6; --accent-2:#06b6d4;
+    --good:#10b981; --bad:#ef4444; --warn:#f59e0b;
+  }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); font-size:13px; line-height:1.4; overflow-x:hidden; }
+  header { background:linear-gradient(135deg,#1e3a8a,#1e40af,#2563eb); padding:16px 24px; border-bottom:2px solid var(--accent); box-shadow:0 2px 10px rgba(0,0,0,.4); }
+  header h1 { font-size:20px; font-weight:700; }
+  header .subtitle { font-size:11px; color:#cbd5e1; margin-top:4px; }
+  .container { padding:16px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:16px; }
+  .kpi { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; transition:border-color .2s; }
+  .kpi:hover { border-color:var(--accent); }
+  .kpi .label { font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+  .kpi .value { font-size:19px; font-weight:700; margin-top:4px; }
+  .kpi .sub { font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .tabs { display:flex; gap:2px; background:var(--bg-2); border-radius:8px; padding:4px; margin-bottom:12px; overflow-x:auto; border:1px solid var(--border); }
+  .tab { background:transparent; border:none; color:var(--text-dim); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:500; white-space:nowrap; transition:all .15s; }
+  .tab:hover { background:var(--bg-3); color:var(--text); }
+  .tab.active { background:var(--accent); color:white; }
+  .toolbar { display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap; }
+  .search-box { flex:1; min-width:220px; background:var(--bg-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; font-size:13px; }
+  .search-box:focus { outline:none; border-color:var(--accent); }
+  .filter-select { background:var(--bg-2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .btn { background:var(--bg-3); border:1px solid var(--border); color:var(--text); padding:7px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:500; }
+  .btn:hover { background:var(--accent); border-color:var(--accent); }
+  .table-wrap { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; overflow:auto; max-height: max(220px, calc(100vh - 320px)); }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  thead { background:var(--bg-3); position:sticky; top:0; z-index:10; }
+  th { text-align:left; padding:10px 12px; font-weight:600; color:var(--text); border-bottom:2px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+  th.num { text-align:right; }
+  th:hover { background:#475569; }
+  th .arrow { color:var(--accent); margin-left:4px; font-size:10px; }
+  td { padding:8px 12px; border-bottom:1px solid #2d3a52; white-space:nowrap; }
+  tr:hover td { background:#2a3650; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.clickable { color:var(--accent-2); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; }
+  td.clickable:hover { color:var(--accent); }
+  .pos { color:var(--good); } .neg { color:var(--bad); }
+  /* Sin rotación */
+  tr.sin-rot td { background: rgba(239,68,68,.10); }
+  tr.sin-rot:hover td { background: rgba(239,68,68,.20); }
+  tr.sin-rot td:first-child { border-left: 3px solid var(--bad); }
+  .sr-badge { display:inline-block; background:var(--bad); color:white; font-size:9px; font-weight:bold; padding:1px 6px; border-radius:8px; margin-left:6px; vertical-align:middle; }
+  .sr-toggle { display:flex; align-items:center; gap:6px; padding:6px 10px; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:12px; }
+  .sr-toggle.on { background:var(--bad); border-color:var(--bad); color:white; }
+  .sr-toggle input { cursor:pointer; }
+  .chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(380px,1fr)); gap:12px; margin-bottom:16px; }
+  .chart-card { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:12px; }
+  .chart-card h3 { font-size:13px; margin-bottom:8px; }
+  .chart-container { height:280px; position:relative; }
+  .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); display:none; align-items:flex-start; justify-content:center; z-index:100; padding:10px; overflow:auto; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:var(--bg-2); border:1px solid var(--accent); border-radius:10px; width:calc(100vw - 20px); max-width:1800px; max-height:calc(100vh - 20px); overflow:auto; padding:16px 18px; margin:auto; }
+  .modal table { font-size:11.5px; }
+  .modal td, .modal th { padding:6px 8px; }
+  .modal td.truncate { max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .modal .table-wrap { max-height: max(220px, calc(100vh - 360px)) !important; }
+  /* Móvil landscape: reduce overhead vertical para que las tablas sean visibles */
+  @media (max-height: 600px) {
+    /* Layout principal */
+    header { padding:6px 12px; }
+    header h1 { font-size:14px; }
+    header .subtitle { display:none; }
+    .container { padding:6px; }
+    .kpis { gap:4px; margin-bottom:6px; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); }
+    .kpi { padding:4px 8px; }
+    .kpi .value { font-size:14px; margin-top:2px; }
+    .kpi .label { font-size:9px; }
+    .kpi .sub { font-size:9px; margin-top:0; }
+    .tabs { padding:2px; margin-bottom:4px; }
+    .tab { padding:5px 10px; font-size:11px; }
+    .toolbar { gap:4px; margin-bottom:4px; }
+    .filters-bar { padding:5px 8px; margin-bottom:4px; gap:4px; }
+    .filter-label { font-size:10px; }
+    .filter-select { padding:4px 6px; font-size:11px; }
+    .search-box { padding:5px 8px; font-size:11px; }
+    .btn { padding:5px 10px; font-size:11px; }
+    /* Tabla en main: más alta en landscape */
+    .table-wrap { max-height: max(150px, calc(100vh - 180px)) !important; }
+    /* Modal */
+    .modal { padding:8px 10px; }
+    .modal .table-wrap { max-height: max(150px, calc(100vh - 180px)) !important; }
+    .modal .kpis { gap:4px; }
+    .modal .kpi { padding:4px 8px; }
+    .modal .kpi .value { font-size:12px; }
+    .modal .kpi .label { font-size:9px; }
+    .modal h3 { margin:8px 0 4px; font-size:12px; }
+    .modal-header { margin-bottom:8px; padding-bottom:6px; }
+    .modal h2 { font-size:13px; }
+  }
+  /* Móvil portrait estrecho: stackear KPIs */
+  @media (max-width: 700px) {
+    .kpis { grid-template-columns: repeat(2, 1fr) !important; }
+    .modal .kpis { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+  .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); position:sticky; top:-20px; background:var(--bg-2); padding-top:4px; z-index:5; }
+  .modal h2 { font-size:16px; }
+  .modal-close { background:var(--bg-3); border:none; color:var(--text); width:28px; height:28px; border-radius:6px; cursor:pointer; font-size:16px; }
+  .modal-close:hover { background:var(--bad); }
+  .breadcrumb { font-size:11px; color:var(--text-dim); margin-bottom:8px; }
+  .breadcrumb a { color:var(--accent-2); cursor:pointer; text-decoration:underline; }
+  .pagination { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:8px 4px; color:var(--text-dim); font-size:11px; }
+  .pagination .controls { display:flex; gap:4px; }
+  .page-btn { background:var(--bg-2); border:1px solid var(--border); color:var(--text); width:28px; height:28px; border-radius:4px; cursor:pointer; font-size:11px; }
+  .page-btn:hover { background:var(--accent); }
+  .page-btn:disabled { opacity:.3; cursor:not-allowed; }
+  .hidden { display:none !important; }
+  .panel-title { font-size:14px; font-weight:600; margin:16px 0 8px; }
+  .filters-bar { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .filter-label { font-size:11px; color:var(--text-dim); margin-right:4px; }
+  /* Multi-select */
+  .multi-select { position:relative; display:inline-block; min-width:110px; }
+  .multi-select .ms-btn {
+    background:var(--bg-2); border:1px solid var(--border); color:var(--text);
+    padding:7px 22px 7px 10px; border-radius:6px; cursor:pointer; font-size:12px;
+    white-space:nowrap; text-align:left; width:100%; min-width:110px;
+    position:relative;
+  }
+  .multi-select .ms-btn::after {
+    content:'▾'; position:absolute; right:7px; top:50%; transform:translateY(-50%);
+    font-size:10px; color:var(--text-dim);
+  }
+  .multi-select .ms-btn.active { border-color:var(--accent); }
+  .multi-select .ms-dropdown {
+    position:absolute; top:calc(100% + 2px); left:0; min-width:180px; max-width:280px;
+    max-height:280px; overflow-y:auto; background:var(--bg-2);
+    border:1px solid var(--accent); border-radius:6px; padding:4px;
+    display:none; z-index:50; box-shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+  .multi-select.open .ms-dropdown { display:block; }
+  .multi-select .ms-opt {
+    padding:5px 8px; border-radius:3px; cursor:pointer; font-size:12px;
+    display:flex; align-items:center; gap:6px; user-select:none;
+  }
+  .multi-select .ms-opt:hover { background:var(--bg-3); }
+  .multi-select .ms-opt input { margin:0; cursor:pointer; }
+  .multi-select .ms-opt.all { font-weight:600; border-bottom:1px solid var(--border); margin-bottom:2px; }
+  .multi-select .ms-count { background:var(--accent); color:#fff; font-size:10px; padding:1px 5px; border-radius:7px; margin-left:4px; }
+  .empty-state { text-align:center; padding:40px; color:var(--text-dim); }
+  .loader { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:200; flex-direction:column; gap:20px; }
+  .spinner { width:50px; height:50px; border:4px solid var(--bg-3); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="loader" class="loader"><div class="spinner"></div><div id="loaderMsg">Cargando datos…</div></div>
+
+<header>
+  <h1>📊 Dashboard de Ventas - Núcleo <span id="updateBadge" style="font-size:11px; background:#10b981; color:#fff; padding:3px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; font-weight:normal"></span></h1>
+  <div class="subtitle" id="subtitle">Cargando…</div>
+</header>
+
+<div class="container">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters-bar">
+    <span class="filter-label">Año:</span>
+    <div class="multi-select" id="filterYear" data-label="Todos"></div>
+    <span class="filter-label">Mes:</span>
+    <div class="multi-select" id="filterMonth" data-label="Todos"></div>
+    <span class="filter-label" style="margin-left:12px;">Plataforma:</span>
+    <div class="multi-select" id="filterPlat" data-label="Todas"></div>
+    <span class="filter-label">Provincia:</span>
+    <select id="filterProv" class="filter-select"><option value="">Todas</option></select>
+    <span class="filter-label" style="margin-left:12px;">Categoría:</span>
+    <select id="filterCat" class="filter-select"><option value="">Todas</option></select>
+    <span class="filter-label">Marca:</span>
+    <div class="multi-select" id="filterMarca" data-label="Todas"></div>
+    <span class="filter-label">Clase:</span>
+    <div class="multi-select" id="filterClase" data-label="Todas"></div>
+    <span class="filter-label">Vendedor:</span>
+    <div class="multi-select" id="filterVend" data-label="Todos"></div>
+    <button class="btn" onclick="resetFilters()">🗑 Limpiar filtros</button>
+    <span style="margin-left:auto;color:var(--text-dim);font-size:11px;" id="filterInfo"></span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="resumen">Resumen</button>
+    <button class="tab" data-tab="clientes">Clientes</button>
+    <button class="tab" data-tab="subcategorias">SubCategorías</button>
+    <button class="tab" data-tab="categorias">Categorías</button>
+    <button class="tab" data-tab="marcas">Marcas</button>
+    <button class="tab" data-tab="articulos">Artículos</button>
+    <button class="tab" data-tab="plataformas">Plataformas</button>
+    <button class="tab" data-tab="vendedores">Vendedores</button>
+    <button class="tab" data-tab="provincias">Provincias</button>
+    <button class="tab" data-tab="sucursales">Sucursales</button>
+    <button class="tab" data-tab="evolucion">Evolución</button>
+    <button class="tab" data-tab="cruce">Cruce Cliente×Sub</button>
+    <button class="tab" data-tab="sinrot" style="color:#fca5a5">⏱ Aging</button>
+  </div>
+
+  <div id="section-resumen" class="section">
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Top 15 SubCategorías por Ventas</h3><div class="chart-container"><canvas id="chartTopSub"></canvas></div></div>
+      <div class="chart-card"><h3>Top 15 Categorías por Ventas</h3><div class="chart-container"><canvas id="chartTopCat"></canvas></div></div>
+      <div class="chart-card"><h3>Top 10 Marcas</h3><div class="chart-container"><canvas id="chartTopMarca"></canvas></div></div>
+      <div class="chart-card"><h3>Top 10 Plataformas</h3><div class="chart-container"><canvas id="chartTopPlat"></canvas></div></div>
+      <div class="chart-card"><h3>Ventas por Mes</h3><div class="chart-container"><canvas id="chartMes"></canvas></div></div>
+      <div class="chart-card"><h3>Profit por Mes</h3><div class="chart-container"><canvas id="chartMesProfit"></canvas></div></div>
+      <div class="chart-card"><h3>Ventas por Provincia (Top 10)</h3><div class="chart-container"><canvas id="chartProv"></canvas></div></div>
+      <div class="chart-card"><h3>Ventas por Año</h3><div class="chart-container"><canvas id="chartYear"></canvas></div></div>
+    </div>
+  </div>
+
+  <div id="section-clientes" class="section hidden">
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchClientes" placeholder="🔎 Buscar cliente por nombre o ID…">
+      <select id="cliMin" class="filter-select">
+        <option value="0">Cualquier monto</option>
+        <option value="100000">Ventas ≥ $100K</option>
+        <option value="1000000">Ventas ≥ $1M</option>
+        <option value="10000000">Ventas ≥ $10M</option>
+        <option value="100000000">Ventas ≥ $100M</option>
+      </select>
+      <button class="btn" onclick="exportClientesExcel()" style="background:var(--accent)">⬇ Exportar a Excel</button>
+      <button class="btn" onclick="exportClientesPDF()" style="background:var(--accent-2)">🖨 Exportar a PDF</button>
+    </div>
+    <div class="table-wrap" id="tableClientes"></div>
+    <div class="pagination" id="pagClientes"></div>
+  </div>
+
+  <div id="section-subcategorias" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchSubcat" placeholder="🔎 Buscar subcategoría…"><button class="btn" onclick="exportTabExcel('subcategorias')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('subcategorias')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableSubcat"></div></div>
+  <div id="section-categorias" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchCat" placeholder="🔎 Buscar categoría…"><button class="btn" onclick="exportTabExcel('categorias')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('categorias')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableCat"></div></div>
+  <div id="section-marcas" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchMarca" placeholder="🔎 Buscar marca…"><button class="btn" onclick="exportTabExcel('marcas')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('marcas')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableMarca"></div></div>
+  <div id="section-articulos" class="section hidden">
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchArt" placeholder="🔎 Buscar artículo (código, nombre, marca, subcat)…">
+      <label class="sr-toggle" id="srToggleLabel"><input type="checkbox" id="srToggle"> ⏱ Solo aging</label>
+      <button class="btn" onclick="exportTabExcel('articulos')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('articulos')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button>
+    </div>
+    <div class="table-wrap" id="tableArt"></div>
+    <div class="pagination" id="pagArt"></div>
+  </div>
+  <div id="section-plataformas" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchPlat" placeholder="🔎 Buscar plataforma…"><button class="btn" onclick="exportTabExcel('plataformas')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('plataformas')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tablePlat"></div></div>
+  <div id="section-vendedores" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchVend" placeholder="🔎 Buscar vendedor…"><button class="btn" onclick="exportTabExcel('vendedores')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('vendedores')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableVend"></div></div>
+  <div id="section-provincias" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchProv" placeholder="🔎 Buscar provincia…"><button class="btn" onclick="exportTabExcel('provincias')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('provincias')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableProv"></div></div>
+  <div id="section-sucursales" class="section hidden"><div class="toolbar"><input type="text" class="search-box" id="searchSuc" placeholder="🔎 Buscar sucursal…"><button class="btn" onclick="exportTabExcel('sucursales')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportTabPDF('sucursales')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div><div class="table-wrap" id="tableSuc"></div></div>
+
+  <div id="section-evolucion" class="section hidden">
+    <div class="chart-grid">
+      <div class="chart-card" style="grid-column:1/-1;"><h3>Ventas mensuales</h3><div class="chart-container" style="height:380px"><canvas id="chartEvolMes"></canvas></div></div>
+      <div class="chart-card"><h3>Profit mensual</h3><div class="chart-container"><canvas id="chartEvolProfit"></canvas></div></div>
+      <div class="chart-card"><h3>Margen % mensual</h3><div class="chart-container"><canvas id="chartEvolMargen"></canvas></div></div>
+      <div class="chart-card"><h3>Cantidad mensual</h3><div class="chart-container"><canvas id="chartEvolCant"></canvas></div></div>
+      <div class="chart-card"><h3>Transacciones mensuales</h3><div class="chart-container"><canvas id="chartEvolTrans"></canvas></div></div>
+    </div>
+    <div class="panel-title">Detalle mensual</div>
+    <div class="table-wrap" id="tableMes"></div>
+  </div>
+
+  <div id="section-sinrot" class="section hidden">
+    <div id="sinrotKPIs" class="kpis"></div>
+    <div class="tabs" style="background:rgba(239,68,68,.08); border-color:var(--bad)">
+      <button class="tab active" data-srview="pms">📋 Ranking de PMs</button>
+      <button class="tab" data-srview="oport">🎯 Clientes Oportunidad</button>
+      <button class="tab" data-srview="subcat">📦 Por SubCat / Marca</button>
+      <button class="tab" data-srview="bucket">⏱ Por Bucket de Aging</button>
+    </div>
+    <div id="srViewPms" class="sr-view">
+      <div class="toolbar"><input type="text" class="search-box" id="searchSRPm" placeholder="🔎 Buscar PM…"><button class="btn" onclick="exportSinRotExcel('pms')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportSinRotPDF('pms')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div>
+      <div class="table-wrap" id="tableSRPms"></div>
+    </div>
+    <div id="srViewOport" class="sr-view hidden">
+      <div class="toolbar">
+        <input type="text" class="search-box" id="searchSROport" placeholder="🔎 Buscar cliente…">
+        <select id="oportTopN" class="filter-select">
+          <option value="100">Top 100 clientes (por ventas históricas)</option>
+          <option value="500" selected>Top 500</option>
+          <option value="1000">Top 1.000</option>
+          <option value="0">Todos los clientes</option>
+        </select>
+        <select id="oportRecency" class="filter-select">
+          <option value="0">Cualquier antigüedad</option>
+          <option value="365">Última compra ≤ 1 año</option>
+          <option value="180">Última compra ≤ 6 meses</option>
+          <option value="90">Última compra ≤ 3 meses</option>
+        </select>
+        <button class="btn" onclick="exportSinRotExcel('oport')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportSinRotPDF('oport')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button>
+      </div>
+      <div class="table-wrap" id="tableSROport"></div>
+    </div>
+    <div id="srViewSubcat" class="sr-view hidden">
+      <div class="toolbar"><input type="text" class="search-box" id="searchSRSub" placeholder="🔎 Buscar subcategoría o marca…"><button class="btn" onclick="exportSinRotExcel('subcat')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportSinRotPDF('subcat')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div>
+      <div class="chart-grid"><div class="chart-card"><h3>Top 15 SubCategorías con más unidades en aging</h3><div class="chart-container"><canvas id="chartSRSub"></canvas></div></div><div class="chart-card"><h3>Top 15 Marcas con más unidades en aging</h3><div class="chart-container"><canvas id="chartSRMarca"></canvas></div></div></div>
+      <div class="panel-title">Detalle</div>
+      <div class="table-wrap" id="tableSRSub"></div>
+    </div>
+    <div id="srViewBucket" class="sr-view hidden">
+      <div id="bucketKPIs" class="kpis"></div>
+      <div class="toolbar"><input type="text" class="search-box" id="searchBucket" placeholder="🔎 Buscar artículo (código, nombre, marca, subcat)…"><select id="bucketFilter" class="filter-select"><option value="-1">Todos los buckets</option><option value="0">0-30 días</option><option value="1">30-60 días</option><option value="2">60-90 días</option><option value="3">90-150 días</option><option value="4">150-365 días</option><option value="5">+365 días</option></select><button class="btn" onclick="exportSinRotExcel('bucket')" style="background:var(--accent)">⬇ Exportar a Excel</button><button class="btn" onclick="exportSinRotPDF('bucket')" style="background:var(--accent-2);margin-left:4px">🖨 Exportar a PDF</button></div>
+      <div class="table-wrap" id="tableBucket"></div>
+    </div>
+  </div>
+
+  <div id="section-cruce" class="section hidden">
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchCruce" placeholder="🔎 Buscar cliente o subcategoría…">
+      <select id="cruceMode" class="filter-select">
+        <option value="cli">Cliente → SubCategorías</option>
+        <option value="sub">SubCategoría → Top Clientes</option>
+      </select>
+    </div>
+    <div id="cruceContent"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="breadcrumb" id="modalBreadcrumb"></div><h2 id="modalTitle">Detalle</h2></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="_internal/data.js"></script>
+<script src="_internal/aging.js"></script>
+<script>
+// ==== Core data ==========================================================
+const D = __DATA__;
+const LK = D.lookups;          // name -> array (idx -> string)
+const ROWS = D.rows;           // transactions
+const SIN_ROT = __SIN_ROT__;   // codigo -> { sr, fis, pot, deps[], pm[] }
+// Row columns:
+const C = { cli:0, cliId:1, sub:2, cat:3, marca:4, plat:5, prov:6, suc:7, vend:8, clase:9, cond:10, ym:11, cod:12, qty:13, ven:14, prof:15, days:16 };
+const EPOCH_MS = Date.parse(D.meta.epoch + 'T00:00:00Z');
+const fmtDate = days => {
+    const d = new Date(EPOCH_MS + days*86400000);
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0');
+};
+
+// Pre-compute some derived per-row values for speed
+const N = ROWS.length;
+const ROW_VEN = new Float64Array(N);
+const ROW_PROF = new Float64Array(N);
+const ROW_QTY = new Float64Array(N);
+for (let i=0; i<N; i++) {
+    ROW_VEN[i] = ROWS[i][C.ven];
+    ROW_PROF[i] = ROWS[i][C.prof];
+    ROW_QTY[i] = ROWS[i][C.qty];
+}
+
+// Build year index from ym strings
+const YM_ARR = LK.ym;  // array of "YYYY-MM"
+const YM_YEAR = new Uint16Array(YM_ARR.length);
+const YM_MONTH = new Uint8Array(YM_ARR.length);
+for (let i=0; i<YM_ARR.length; i++) {
+    const s = YM_ARR[i] || '';
+    YM_YEAR[i] = parseInt(s.slice(0,4)) || 0;
+    YM_MONTH[i] = parseInt(s.slice(5,7)) || 0;
+}
+
+// ==== Formatters =========================================================
+const fmtMoney = n => '$' + Number(n||0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+const fmtNum = n => Number(n||0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// ==== Filter state =======================================================
+const STATE = {
+    // years, months, plats, clases pueden ser arrays (multi-select); [] = todos
+    filters: { years:[], months:[], plats:[], clases:[], vends:[], marcas:[], prov:-1, cat:-1 },
+    sort: {},
+    page: { clientes:0, articulos:0 },
+    pageSize: 100,
+    activeRows: null,
+    aggCache: {},
+};
+
+function buildActiveRows() {
+    const f = STATE.filters;
+    const noFilter = !f.years.length && !f.months.length && !f.plats.length && !f.clases.length
+                     && !(f.vends && f.vends.length)
+                     && !(f.marcas && f.marcas.length)
+                     && f.prov<0 && f.cat<0;
+    if (noFilter) {
+        const arr = new Uint32Array(N);
+        for (let i=0;i<N;i++) arr[i]=i;
+        STATE.activeRows = arr;
+        STATE.aggCache = {};
+        STATE.srClientIdx = null;
+        return;
+    }
+    const yearsSet = f.years.length ? new Set(f.years) : null;
+    const monthsSet = f.months.length ? new Set(f.months) : null;
+    const platsSet = f.plats.length ? new Set(f.plats) : null;
+    const clasesSet = f.clases.length ? new Set(f.clases) : null;
+    const vendsSet = (f.vends && f.vends.length) ? new Set(f.vends) : null;
+    const marcasSet = (f.marcas && f.marcas.length) ? new Set(f.marcas) : null;
+    const out = new Uint32Array(N);
+    let k = 0;
+    for (let i=0; i<N; i++) {
+        const r = ROWS[i];
+        if (platsSet && !platsSet.has(r[C.plat])) continue;
+        if (clasesSet && !clasesSet.has(r[C.clase])) continue;
+        if (vendsSet && !vendsSet.has(r[C.vend])) continue;
+        if (marcasSet && !marcasSet.has(r[C.marca])) continue;
+        if (f.prov >= 0 && r[C.prov] !== f.prov) continue;
+        if (f.cat >= 0 && r[C.cat] !== f.cat) continue;
+        const ymi = r[C.ym];
+        if (yearsSet && !yearsSet.has(YM_YEAR[ymi])) continue;
+        if (monthsSet && !monthsSet.has(YM_MONTH[ymi])) continue;
+        out[k++] = i;
+    }
+    STATE.activeRows = out.slice(0, k);
+    STATE.aggCache = {};
+    STATE.srClientIdx = null;
+}
+
+// ==== Aggregation primitives ============================================
+// agg: iterates active rows, groups by a column index, returns Map<keyIdx, {v,p,q,t}>
+function aggregate(colIdx) {
+    const key = 'col_'+colIdx;
+    if (STATE.aggCache[key]) return STATE.aggCache[key];
+    const active = STATE.activeRows;
+    const map = new Map();
+    for (let k=0; k<active.length; k++) {
+        const i = active[k];
+        const r = ROWS[i];
+        const g = r[colIdx];
+        let e = map.get(g);
+        if (!e) { e = {v:0,p:0,q:0,t:0}; map.set(g,e); }
+        e.v += ROW_VEN[i];
+        e.p += ROW_PROF[i];
+        e.q += ROW_QTY[i];
+        e.t += 1;
+    }
+    STATE.aggCache[key] = map;
+    return map;
+}
+
+// Aggregate by cliente Id (preserving stability)
+function aggregateCli() {
+    if (STATE.aggCache.cliId) return STATE.aggCache.cliId;
+    const active = STATE.activeRows;
+    const map = new Map(); // cliId -> {v,p,q,t, cliNameIdx, provIdx, claseIdx, vendIdx, lastDays}
+    for (let k=0; k<active.length; k++) {
+        const i = active[k];
+        const r = ROWS[i];
+        const id = r[C.cliId];
+        if (id < 0) continue;  // skip rows w/o cliente id
+        let e = map.get(id);
+        if (!e) {
+            e = { v:0,p:0,q:0,t:0, nIdx:r[C.cli], provIdx:r[C.prov], claseIdx:r[C.clase], vendIdx:r[C.vend], lastDays:-1 };
+            map.set(id, e);
+        }
+        e.v += ROW_VEN[i];
+        e.p += ROW_PROF[i];
+        e.q += ROW_QTY[i];
+        e.t += 1;
+        if (r[C.days] > e.lastDays) e.lastDays = r[C.days];
+    }
+    STATE.aggCache.cliId = map;
+    return map;
+}
+
+// Aggregate by codigo (articulo)
+function aggregateArt() {
+    if (STATE.aggCache.art) return STATE.aggCache.art;
+    const active = STATE.activeRows;
+    const map = new Map();
+    for (let k=0; k<active.length; k++) {
+        const i = active[k];
+        const r = ROWS[i];
+        const codIdx = r[C.cod];
+        let e = map.get(codIdx);
+        if (!e) { e = {v:0,p:0,q:0,t:0}; map.set(codIdx, e); }
+        e.v += ROW_VEN[i];
+        e.p += ROW_PROF[i];
+        e.q += ROW_QTY[i];
+        e.t += 1;
+    }
+    STATE.aggCache.art = map;
+    return map;
+}
+
+// Aggregate by month (ym idx)
+function aggregateMonth() {
+    return aggregate(C.ym);
+}
+
+// ==== Global totals ======================================================
+function totalsOf() {
+    if (STATE.aggCache.totals) return STATE.aggCache.totals;
+    const active = STATE.activeRows;
+    let v=0,p=0,q=0;
+    for (let k=0;k<active.length;k++) {
+        const i = active[k];
+        v += ROW_VEN[i]; p += ROW_PROF[i]; q += ROW_QTY[i];
+    }
+    const t = active.length;
+    STATE.aggCache.totals = {v,p,q,t};
+    return STATE.aggCache.totals;
+}
+
+// ==== Render KPIs ========================================================
+function renderKPIs() {
+    const t = totalsOf();
+    const margen = t.v ? (t.p/t.v)*100 : 0;
+    const ticket = t.t ? t.v/t.t : 0;
+    const f = STATE.filters;
+    const parts = [];
+    if (f.years.length) parts.push('Año: ' + f.years.join(', '));
+    if (f.months.length) parts.push('Mes: ' + f.months.map(m=>String(m).padStart(2,'0')).join(', '));
+    if (f.plats.length) parts.push('Plat: ' + f.plats.map(i=>LK.plat[i]).join(', '));
+    if (f.prov>=0) parts.push('Prov: '+LK.prov[f.prov]);
+    if (f.cat>=0) parts.push('Cat: '+LK.cat[f.cat]);
+    if (f.marcas && f.marcas.length) parts.push('Marca: ' + f.marcas.map(i=>LK.marca[i]).join(', '));
+    if (f.clases.length) parts.push('Clase: ' + f.clases.map(i=>LK.clase[i]).join(', '));
+    if (f.vends && f.vends.length) parts.push('Vendedor: ' + f.vends.map(i=>LK.vend[i]).join(', '));
+    const sub1 = parts.length ? parts.join(' · ') : `${D.meta.min_date} → ${D.meta.max_date}`;
+
+    // Unique counts in active scope
+    const dims = {
+        clientes: aggregateCli().size,
+        subcat: aggregate(C.sub).size,
+        cat: aggregate(C.cat).size,
+        marca: aggregate(C.marca).size,
+        art: aggregateArt().size,
+    };
+
+    document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="label">Ventas</div><div class="value">${fmtMoney(t.v)}</div><div class="sub">${sub1}</div></div>
+        <div class="kpi"><div class="label">Profit</div><div class="value pos">${fmtMoney(t.p)}</div><div class="sub">${margen.toFixed(2)}% margen</div></div>
+        <div class="kpi"><div class="label">Transacciones</div><div class="value">${fmtNum(t.t)}</div><div class="sub">Ticket: ${fmtMoney(ticket)}</div></div>
+        <div class="kpi"><div class="label">Cantidad (uds)</div><div class="value">${fmtNum(t.q)}</div></div>
+        <div class="kpi"><div class="label">Clientes</div><div class="value">${fmtNum(dims.clientes)}</div></div>
+        <div class="kpi"><div class="label">SubCategorías</div><div class="value">${dims.subcat}</div><div class="sub">${dims.cat} categorías</div></div>
+        <div class="kpi"><div class="label">Marcas</div><div class="value">${dims.marca}</div></div>
+        <div class="kpi"><div class="label">Artículos</div><div class="value">${fmtNum(dims.art)}</div></div>
+    `;
+}
+
+// ==== Chart helpers ======================================================
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function makeBarChart(id, labels, values, color, horiz) {
+    destroyChart(id); const ctx = document.getElementById(id); if (!ctx) return;
+    charts[id] = new Chart(ctx, {
+        type:'bar',
+        data:{ labels, datasets:[{ data: values, backgroundColor: color, borderRadius:3 }]},
+        options:{ indexAxis: horiz?'y':'x', maintainAspectRatio:false, responsive:true,
+            plugins:{legend:{display:false}, tooltip:{callbacks:{label: c => fmtMoney(c.raw)}}},
+            scales:{ x:{ticks:{color:'#94a3b8', font:{size:10}, callback: v => horiz ? fmtMoney(v) : v}, grid:{color:'#334155'}},
+                y:{ticks:{color:'#94a3b8', font:{size:10}, callback: v => horiz ? v : fmtMoney(v)}, grid:{color:'#334155'}}} }
+    });
+}
+function makeLineChart(id, labels, datasets, fmtY) {
+    destroyChart(id); const ctx = document.getElementById(id); if (!ctx) return;
+    charts[id] = new Chart(ctx, {
+        type:'line', data:{labels, datasets},
+        options:{ maintainAspectRatio:false, responsive:true,
+            plugins:{legend:{labels:{color:'#cbd5e1', font:{size:11}}}, tooltip:{callbacks:{label: c => c.dataset.label+': '+ (fmtY?fmtY(c.raw):fmtMoney(c.raw))}}},
+            scales:{ x:{ticks:{color:'#94a3b8', font:{size:10}}, grid:{color:'#334155'}},
+                y:{ticks:{color:'#94a3b8', font:{size:10}, callback: v => fmtY?fmtY(v):fmtMoney(v)}, grid:{color:'#334155'}}} }
+    });
+}
+
+// ==== Resumen charts =====================================================
+function mapToSortedArray(map, lookupArr, top) {
+    const arr = [];
+    map.forEach((e,k) => {
+        const name = lookupArr ? (lookupArr[k]||'(sin dato)') : k;
+        arr.push([name, e.v, e.p, e.q, e.t]);
+    });
+    arr.sort((a,b)=>b[1]-a[1]);
+    return top ? arr.slice(0,top) : arr;
+}
+function renderResumenCharts() {
+    const topSub = mapToSortedArray(aggregate(C.sub), LK.subcat, 15);
+    makeBarChart('chartTopSub', topSub.map(x=>x[0]), topSub.map(x=>x[1]), '#3b82f6', true);
+    const topCat = mapToSortedArray(aggregate(C.cat), LK.cat, 15);
+    makeBarChart('chartTopCat', topCat.map(x=>x[0]), topCat.map(x=>x[1]), '#06b6d4', true);
+    const topMarca = mapToSortedArray(aggregate(C.marca), LK.marca, 10);
+    makeBarChart('chartTopMarca', topMarca.map(x=>x[0]), topMarca.map(x=>x[1]), '#10b981', true);
+    const topPlat = mapToSortedArray(aggregate(C.plat), LK.plat, 10);
+    makeBarChart('chartTopPlat', topPlat.map(x=>x[0]), topPlat.map(x=>x[1]), '#f59e0b', true);
+
+    // Monthly
+    const mesMap = aggregateMonth();
+    const mesArr = [...mesMap.entries()].map(([k,e])=>[LK.ym[k], e.v, e.p, e.q, e.t]);
+    mesArr.sort((a,b)=>a[0].localeCompare(b[0]));
+    makeLineChart('chartMes', mesArr.map(x=>x[0]), [{label:'Ventas', data: mesArr.map(x=>x[1]), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.2)', tension:.25, fill:true}]);
+    makeLineChart('chartMesProfit', mesArr.map(x=>x[0]), [{label:'Profit', data: mesArr.map(x=>x[2]), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.2)', tension:.25, fill:true}]);
+
+    const topProv = mapToSortedArray(aggregate(C.prov), LK.prov, 10);
+    makeBarChart('chartProv', topProv.map(x=>x[0]), topProv.map(x=>x[1]), '#8b5cf6', true);
+
+    // By year
+    const byYear = new Map();
+    mesMap.forEach((e,k) => {
+        const y = YM_YEAR[k];
+        const cur = byYear.get(y) || 0;
+        byYear.set(y, cur + e.v);
+    });
+    const ys = [...byYear.keys()].sort();
+    makeBarChart('chartYear', ys.map(y=>String(y)), ys.map(y=>byYear.get(y)), '#ef4444');
+}
+
+function renderEvolucionCharts() {
+    const mesMap = aggregateMonth();
+    const mesArr = [...mesMap.entries()].map(([k,e])=>[LK.ym[k], e.v, e.p, e.q, e.t]);
+    mesArr.sort((a,b)=>a[0].localeCompare(b[0]));
+    makeLineChart('chartEvolMes', mesArr.map(x=>x[0]), [{label:'Ventas', data:mesArr.map(x=>x[1]), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.15)', tension:.2, fill:true}]);
+    makeLineChart('chartEvolProfit', mesArr.map(x=>x[0]), [{label:'Profit', data:mesArr.map(x=>x[2]), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.15)', tension:.2, fill:true}]);
+    const margen = mesArr.map(x => x[1] ? +(x[2]*100/x[1]).toFixed(2) : 0);
+    makeLineChart('chartEvolMargen', mesArr.map(x=>x[0]), [{label:'Margen %', data:margen, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.15)', tension:.2, fill:true}], v => v+'%');
+    destroyChart('chartEvolCant');
+    charts['chartEvolCant'] = new Chart(document.getElementById('chartEvolCant'), {
+        type:'bar', data:{labels:mesArr.map(x=>x[0]), datasets:[{label:'Cantidad', data:mesArr.map(x=>x[3]), backgroundColor:'#06b6d4'}]},
+        options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback: v=>fmtNum(v)}, grid:{color:'#334155'}}}}
+    });
+    destroyChart('chartEvolTrans');
+    charts['chartEvolTrans'] = new Chart(document.getElementById('chartEvolTrans'), {
+        type:'bar', data:{labels:mesArr.map(x=>x[0]), datasets:[{label:'Transacciones', data:mesArr.map(x=>x[4]), backgroundColor:'#8b5cf6'}]},
+        options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback: v=>fmtNum(v)}, grid:{color:'#334155'}}}}
+    });
+    // tabla
+    const tot = mesArr.reduce((a,m)=>{a.v+=m[1];a.p+=m[2];a.q+=m[3];a.t+=m[4];return a;}, {v:0,p:0,q:0,t:0});
+    let html = '<table><thead><tr><th>Mes</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">Margen</th><th class="num">Cantidad</th><th class="num">Trans.</th></tr></thead><tbody>';
+    mesArr.forEach(m => {
+        const margen = m[1] ? (m[2]*100/m[1]) : 0;
+        html += `<tr><td>${m[0]}</td><td class="num">${fmtMoney(m[1])}</td><td class="num pos">${fmtMoney(m[2])}</td><td class="num">${margen.toFixed(2)}%</td><td class="num">${fmtNum(m[3])}</td><td class="num">${fmtNum(m[4])}</td></tr>`;
+    });
+    html += `<tr style="background:var(--bg-3); font-weight:bold"><td>TOTAL (${mesArr.length})</td><td class="num">${fmtMoney(tot.v)}</td><td class="num pos">${fmtMoney(tot.p)}</td><td class="num">${tot.v?(tot.p*100/tot.v).toFixed(2):'0'}%</td><td class="num">${fmtNum(tot.q)}</td><td class="num">${fmtNum(tot.t)}</td></tr></tbody></table>`;
+    document.getElementById('tableMes').innerHTML = html;
+}
+
+// ==== Generic dim table renderer =========================================
+function buildDimRows(colIdx, lookupArr) {
+    return mapToSortedArray(aggregate(colIdx), lookupArr);
+}
+
+function sortArr(arr, keyIdx, dir) {
+    const m = dir==='desc'?-1:1;
+    arr.sort((a,b) => { const va=a[keyIdx], vb=b[keyIdx]; if (typeof va==='number') return (va-vb)*m; return String(va||'').localeCompare(String(vb||''))*m; });
+    return arr;
+}
+
+function arrowOf(tab, key) {
+    const s = STATE.sort[tab]; return (s && s.key===key) ? `<span class="arrow">${s.dir==='desc'?'▼':'▲'}</span>` : '';
+}
+function sortBy(tab, key) {
+    const cur = STATE.sort[tab] || {key:null, dir:'desc'};
+    if (cur.key === key) cur.dir = cur.dir==='desc'?'asc':'desc';
+    else { cur.key = key; cur.dir = 'desc'; }
+    STATE.sort[tab] = cur;
+    renderTab(tab);
+}
+
+function renderDimTab(tab, colIdx, lookupArr, searchId, tableId, label, isClickable) {
+    const q = (document.getElementById(searchId)?.value || '').toLowerCase().trim();
+    let rows = buildDimRows(colIdx, lookupArr);
+    if (q) rows = rows.filter(r => String(r[0]||'').toLowerCase().includes(q));
+    const s = STATE.sort[tab] || {key:'v', dir:'desc'};
+    // Column names -> index: name=0,v=1,p=2,q=3,t=4
+    const keyMap = {nombre:0, ventas:1, profit:2, cantidad:3, trans:4};
+    const idx2 = keyMap[s.key] !== undefined ? keyMap[s.key] : 1;
+    sortArr(rows, idx2, s.dir);
+    const totV = rows.reduce((a,r)=>a+r[1],0);
+    const arr = (k) => arrowOf(tab, k);
+    const clickFn = tab==='subcategorias' ? 'showSubcatDetail' : null;
+    let html = `<table><thead><tr>
+        <th onclick="sortBy('${tab}','nombre')">${label}${arr('nombre')}</th>
+        <th class="num" onclick="sortBy('${tab}','ventas')">Ventas${arr('ventas')}</th>
+        <th class="num" onclick="sortBy('${tab}','profit')">Profit${arr('profit')}</th>
+        <th class="num">Margen</th>
+        <th class="num">% Total</th>
+        <th class="num" onclick="sortBy('${tab}','cantidad')">Cantidad${arr('cantidad')}</th>
+        <th class="num" onclick="sortBy('${tab}','trans')">Trans.${arr('trans')}</th>
+        <th class="num">Ticket</th>
+    </tr></thead><tbody>`;
+    rows.forEach(r => {
+        const margen = r[1] ? (r[2]*100/r[1]) : 0;
+        const pct = totV ? (r[1]*100/totV) : 0;
+        const ticket = r[4] ? r[1]/r[4] : 0;
+        const nameCell = clickFn
+            ? `<td class="clickable" onclick="${clickFn}('${escAttr(r[0])}')">${r[0]||'(sin dato)'}</td>`
+            : `<td>${r[0]||'(sin dato)'}</td>`;
+        html += `<tr>${nameCell}
+            <td class="num">${fmtMoney(r[1])}</td>
+            <td class="num ${r[2]>=0?'pos':'neg'}">${fmtMoney(r[2])}</td>
+            <td class="num">${margen.toFixed(1)}%</td>
+            <td class="num">${pct.toFixed(2)}%</td>
+            <td class="num">${fmtNum(r[3])}</td>
+            <td class="num">${fmtNum(r[4])}</td>
+            <td class="num">${fmtMoney(ticket)}</td>
+        </tr>`;
+    });
+    html += `<tr style="background:var(--bg-3); font-weight:bold"><td>TOTAL (${rows.length})</td><td class="num">${fmtMoney(totV)}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+    html += '</tbody></table>';
+    document.getElementById(tableId).innerHTML = html;
+    // Cache for CSV export
+    STATE.lastDim = STATE.lastDim || {};
+    STATE.lastDim[tab] = rows;
+}
+
+// ==== Clientes table =====================================================
+function renderClientes() {
+    const q = document.getElementById('searchClientes').value.toLowerCase().trim();
+    const minV = +document.getElementById('cliMin').value;
+    const map = aggregateCli();
+    const rows = [];
+    const todayDays = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+    map.forEach((e, id) => {
+        const meta = D.clientesById[id] || {};
+        const nombre = LK.clienteName[e.nIdx] || meta.nombre || '(sin dato)';
+        if (q) {
+            if (!(nombre.toLowerCase().includes(q) || String(id).includes(q))) return;
+        }
+        if (minV && e.v < minV) return;
+        rows.push({
+            id, nombre, ventas:e.v, profit:e.p, cantidad:e.q, trans:e.t,
+            ultimaDays: e.lastDays,
+            ultima: (e.lastDays >= 0) ? fmtDate(e.lastDays) : '-',
+            dias: (e.lastDays >= 0) ? (todayDays - e.lastDays) : null,
+            provincia: meta.provincia || LK.prov[e.provIdx],
+            clase: meta.clase || LK.clase[e.claseIdx],
+            vendedor: meta.vendedor || LK.vend[e.vendIdx],
+        });
+    });
+    const s = STATE.sort.clientes || {key:'ventas', dir:'desc'};
+    rows.sort((a,b)=>{ const va=a[s.key], vb=b[s.key]; const m = s.dir==='desc'?-1:1; if (typeof va==='number') return (va-vb)*m; return String(va||'').localeCompare(String(vb||''))*m; });
+    const total = rows.length;
+    const sumV = rows.reduce((a,r)=>a+r.ventas,0);
+    const page = STATE.page.clientes;
+    const slice = rows.slice(page*STATE.pageSize, (page+1)*STATE.pageSize);
+    const arr = (k) => arrowOf('clientes', k);
+    let html = `<table><thead><tr>
+        <th onclick="sortBy('clientes','id')">ID${arr('id')}</th>
+        <th onclick="sortBy('clientes','nombre')">Cliente${arr('nombre')}</th>
+        <th class="num" onclick="sortBy('clientes','ventas')">Ventas${arr('ventas')}</th>
+        <th class="num" onclick="sortBy('clientes','profit')">Profit${arr('profit')}</th>
+        <th class="num" onclick="sortBy('clientes','cantidad')">Cantidad${arr('cantidad')}</th>
+        <th onclick="sortBy('clientes','ultimaDays')">Última compra${arr('ultimaDays')}</th>
+        <th class="num" onclick="sortBy('clientes','dias')">Días atrás${arr('dias')}</th>
+        <th class="num" onclick="sortBy('clientes','trans')">Trans.${arr('trans')}</th>
+        <th class="num">Margen</th>
+        <th onclick="sortBy('clientes','provincia')">Provincia${arr('provincia')}</th>
+        <th onclick="sortBy('clientes','clase')">Clase${arr('clase')}</th>
+        <th>Vendedor</th>
+    </tr></thead><tbody>`;
+    slice.forEach(c => {
+        const m = c.ventas ? (c.profit*100/c.ventas) : 0;
+        const diasColor = c.dias == null ? 'var(--text-dim)' : (c.dias <= 180 ? 'var(--good)' : (c.dias <= 730 ? 'var(--warn)' : 'var(--bad)'));
+        html += `<tr>
+            <td>${c.id||''}</td>
+            <td class="clickable" onclick="showClienteDetail('${escAttr(c.nombre)}', ${c.id||'null'})">${c.nombre}</td>
+            <td class="num">${fmtMoney(c.ventas)}</td>
+            <td class="num ${c.profit>=0?'pos':'neg'}">${fmtMoney(c.profit)}</td>
+            <td class="num">${fmtNum(c.cantidad)}</td>
+            <td>${c.ultima}</td>
+            <td class="num" style="color:${diasColor}; font-weight:600">${c.dias != null ? fmtNum(c.dias) : '-'}</td>
+            <td class="num">${fmtNum(c.trans)}</td>
+            <td class="num">${m.toFixed(1)}%</td>
+            <td>${c.provincia||''}</td>
+            <td>${c.clase||''}</td>
+            <td>${c.vendedor||''}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('tableClientes').innerHTML = html;
+    STATE.lastClientes = rows;
+    renderPagination('clientes', 'pagClientes', total, page, sumV);
+}
+function renderPagination(tab, contId, total, page, sumV) {
+    const totalPages = Math.ceil(total / STATE.pageSize);
+    document.getElementById(contId).innerHTML = `
+        <div>${fmtNum(total)} ${tab} · suma ventas: ${fmtMoney(sumV)} · página ${page+1}/${Math.max(1,totalPages)}</div>
+        <div class="controls">
+            <button class="page-btn" onclick="changePage('${tab}',-1)" ${page===0?'disabled':''}>←</button>
+            <button class="page-btn" onclick="changePage('${tab}',1)" ${page>=totalPages-1?'disabled':''}>→</button>
+        </div>`;
+}
+
+// ====== Export del listado de Clientes (tab Clientes) ======
+// Usa STATE.lastClientes (lo que se está mostrando con los filtros + búsqueda + sort)
+function _hasPricesDashboard() {
+    // Detecta si el dashboard maneja plata. La versión Vendedores reemplaza
+    // este flag a true via build_vendedores.py.
+    return true;
+}
+function exportClientesExcel() {
+    const rows = STATE.lastClientes || [];
+    if (!rows.length) { alert('No hay clientes para exportar'); return; }
+    const hasPrices = _hasPricesDashboard();
+    const out = [];
+    out.push(['Generado', new Date().toLocaleString('es-AR')]);
+    out.push(['Total clientes', rows.length]);
+    out.push([]);
+    const headers = ['ID', 'Cliente'];
+    if (hasPrices) { headers.push('Ventas', 'Profit', 'Margen %'); }
+    headers.push('Cantidad', 'Última compra', 'Días atrás', 'Transacciones', 'Provincia', 'Clase', 'Vendedor');
+    out.push(headers);
+    rows.forEach(c => {
+        const m = c.ventas ? (c.profit*100/c.ventas) : 0;
+        const row = [c.id||'', c.nombre||''];
+        if (hasPrices) {
+            row.push(Math.round(c.ventas||0));
+            row.push(Math.round(c.profit||0));
+            row.push(m.toFixed(1));
+        }
+        row.push(c.cantidad||0);
+        row.push(c.ultima||'-');
+        row.push(c.dias != null ? c.dias : '-');
+        row.push(c.trans||0);
+        row.push(c.provincia||'');
+        row.push(c.clase||'');
+        row.push(c.vendedor||'');
+        out.push(row);
+    });
+    const csv = '﻿' + out.map(r => r.map(_csvEscape).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    link.href = url;
+    link.download = `Clientes_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportClientesPDF() {
+    const rows = STATE.lastClientes || [];
+    if (!rows.length) { alert('No hay clientes para exportar'); return; }
+    const hasPrices = _hasPricesDashboard();
+    const win = window.open('', '_blank', 'width=1200,height=800');
+    if (!win) { alert('Popup bloqueado. Habilita popups para este sitio.'); return; }
+    const today = new Date().toLocaleString('es-AR');
+    const safeName = (s) => String(s || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Clientes</title><style>
+        @page { size: A4 landscape; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; padding: 14px; }
+        h1 { font-size: 15px; margin: 0 0 4px; }
+        .meta { font-size: 9px; color: #666; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: fixed; }
+        th { background: #1e293b; color: #fff; padding: 4px 5px; text-align: left; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; vertical-align: top; word-wrap: break-word; }
+        .num { text-align: right; }
+        .footer { margin-top: 12px; font-size: 8px; color: #888; text-align: right; }
+        @media print { body { padding: 0; } }
+    </style></head><body>
+        <h1>📋 Listado de Clientes</h1>
+        <div class="meta">Total: <strong>${rows.length}</strong> clientes · Generado el ${today}</div>
+        <table><thead><tr>
+            <th style="width:5%">ID</th>
+            <th style="width:${hasPrices ? 18 : 24}%">Cliente</th>
+            ${hasPrices ? '<th class="num" style="width:9%">Ventas</th><th class="num" style="width:8%">Profit</th><th class="num" style="width:5%">Margen</th>' : ''}
+            <th class="num" style="width:7%">Cantidad</th>
+            <th style="width:8%">Última compra</th>
+            <th class="num" style="width:6%">Días atrás</th>
+            <th class="num" style="width:6%">Trans.</th>
+            <th style="width:11%">Provincia</th>
+            <th style="width:7%">Clase</th>
+            <th style="width:10%">Vendedor</th>
+        </tr></thead><tbody>`;
+    rows.forEach(c => {
+        const m = c.ventas ? (c.profit*100/c.ventas) : 0;
+        html += `<tr>
+            <td>${safeName(c.id||'')}</td>
+            <td>${safeName(c.nombre)}</td>
+            ${hasPrices ? `<td class="num">${fmtMoney(c.ventas)}</td><td class="num">${fmtMoney(c.profit)}</td><td class="num">${m.toFixed(1)}%</td>` : ''}
+            <td class="num">${fmtNum(c.cantidad)}</td>
+            <td>${safeName(c.ultima||'-')}</td>
+            <td class="num">${c.dias != null ? fmtNum(c.dias) : '-'}</td>
+            <td class="num">${fmtNum(c.trans)}</td>
+            <td>${safeName(c.provincia||'')}</td>
+            <td>${safeName(c.clase||'')}</td>
+            <td>${safeName(c.vendedor||'')}</td>
+        </tr>`;
+    });
+    html += `</tbody></table>
+        <div class="footer">Dashboard Ventas Núcleo</div>
+        <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };<\/script>
+    </body></html>`;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+}
+function changePage(tab, delta) { STATE.page[tab] = Math.max(0, STATE.page[tab]+delta); if (tab==='clientes') renderClientes(); else renderArticulos(); }
+
+// ==== Articulos table ====================================================
+function renderArticulos() {
+    const q = document.getElementById('searchArt').value.toLowerCase().trim();
+    const onlySR = document.getElementById('srToggle')?.checked;
+    const map = aggregateArt();
+    const rows = [];
+
+    // If onlySR is on, also include articulos that have no sales but have SR stock
+    if (onlySR) {
+        for (const codigo in SIN_ROT) {
+            const sr = SIN_ROT[codigo];
+            const meta = D.articulosMaster[codigo] || {};
+            const codIdx = LK.codigo.indexOf(codigo);
+            const e = (codIdx >= 0) ? map.get(codIdx) : null;
+            if (q) {
+                const hay = (codigo+' '+(meta.articulo||'')+' '+(meta.marca||'')+' '+(meta.subcat||'')+' '+(meta.cat||'')).toLowerCase();
+                if (!hay.includes(q)) continue;
+            }
+            rows.push({
+                codigo, articulo:meta.articulo||'(sin venta histórica)', marca:meta.marca||'', subcat:meta.subcat||'', categoria:meta.cat||'',
+                ventas: e?e.v:0, profit: e?e.p:0, cantidad: e?e.q:0, trans: e?e.t:0,
+                sr: sr.sr, fis: sr.fis, sinRot: true,
+            });
+        }
+    } else {
+        map.forEach((e, codIdx) => {
+            const codigo = LK.codigo[codIdx];
+            if (!codigo) return;
+            const meta = D.articulosMaster[codigo] || {};
+            if (q) {
+                const hay = (codigo+' '+meta.articulo+' '+meta.marca+' '+meta.subcat+' '+meta.cat).toLowerCase();
+                if (!hay.includes(q)) return;
+            }
+            const sr = SIN_ROT[codigo];
+            rows.push({
+                codigo, articulo:meta.articulo||'', marca:meta.marca||'', subcat:meta.subcat||'', categoria:meta.cat||'',
+                ventas:e.v, profit:e.p, cantidad:e.q, trans:e.t,
+                sr: sr?sr.sr:0, fis: sr?sr.fis:0, sinRot: !!sr,
+            });
+        });
+    }
+
+    const s = STATE.sort.articulos || {key:'ventas', dir:'desc'};
+    rows.sort((a,b)=>{ const va=a[s.key], vb=b[s.key]; const m = s.dir==='desc'?-1:1; if (typeof va==='number') return (va-vb)*m; return String(va||'').localeCompare(String(vb||''))*m; });
+    const total = rows.length;
+    const sumV = rows.reduce((a,r)=>a+r.ventas,0);
+    const sumSR = rows.reduce((a,r)=>a+(r.sr||0),0);
+    const page = STATE.page.articulos;
+    const slice = rows.slice(page*STATE.pageSize, (page+1)*STATE.pageSize);
+    const arr = (k) => arrowOf('articulos', k);
+    let html = `<table><thead><tr>
+        <th onclick="sortBy('articulos','codigo')">Código${arr('codigo')}</th>
+        <th onclick="sortBy('articulos','articulo')">Artículo${arr('articulo')}</th>
+        <th onclick="sortBy('articulos','marca')">Marca${arr('marca')}</th>
+        <th onclick="sortBy('articulos','subcat')">SubCategoría${arr('subcat')}</th>
+        <th class="num" onclick="sortBy('articulos','sr')">Stock aging${arr('sr')}</th>
+        <th class="num" onclick="sortBy('articulos','fis')">Stock${arr('fis')}</th>
+        <th class="num" onclick="sortBy('articulos','ventas')">Ventas${arr('ventas')}</th>
+        <th class="num" onclick="sortBy('articulos','profit')">Profit${arr('profit')}</th>
+        <th class="num">Margen</th>
+        <th class="num" onclick="sortBy('articulos','cantidad')">Cant.${arr('cantidad')}</th>
+        <th class="num" onclick="sortBy('articulos','trans')">Trans.${arr('trans')}</th>
+    </tr></thead><tbody>`;
+    slice.forEach(a => {
+        const m = a.ventas ? (a.profit*100/a.ventas) : 0;
+        const cls = a.sinRot ? ' class="sin-rot"' : '';
+        // Badge color por bucket más viejo de aging (verde→rojo oscuro)
+        let badge = '';
+        if (a.sinRot && typeof __AGING__ !== 'undefined') {
+            const ag = __AGING__[a.codigo];
+            const colors = ['#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#7c2d12'];
+            const labels = ['0-30d','30-60d','60-90d','90-150d','150-365d','+365d'];
+            const oldIdx = ag && typeof ag.old === 'number' ? ag.old : 5;
+            badge = `<span class="sr-badge" style="background:${colors[oldIdx]||'#7c2d12'}">${labels[oldIdx]||'AGING'}</span>`;
+        }
+        html += `<tr${cls}>
+            <td class="clickable" onclick="showArticuloDetail('${escAttr(a.codigo)}')">${a.codigo}${badge}</td>
+            <td class="clickable" onclick="showArticuloDetail('${escAttr(a.codigo)}')">${a.articulo}</td>
+            <td>${a.marca}</td>
+            <td>${a.subcat}</td>
+            <td class="num" style="color:${a.sr?'var(--bad)':'var(--text-dim)'}">${a.sr?fmtNum(a.sr):'-'}</td>
+            <td class="num">${a.fis?fmtNum(a.fis):'-'}</td>
+            <td class="num">${fmtMoney(a.ventas)}</td>
+            <td class="num ${a.profit>=0?'pos':'neg'}">${fmtMoney(a.profit)}</td>
+            <td class="num">${m.toFixed(1)}%</td>
+            <td class="num">${fmtNum(a.cantidad)}</td>
+            <td class="num">${fmtNum(a.trans)}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('tableArt').innerHTML = html;
+    STATE.lastArticulos = rows;
+    const totalPages = Math.ceil(total / STATE.pageSize);
+    document.getElementById('pagArt').innerHTML = `
+        <div>${fmtNum(total)} artículos · ventas: ${fmtMoney(sumV)}${onlySR?' · '+fmtNum(sumSR)+' uds en aging':''} · página ${page+1}/${Math.max(1,totalPages)}</div>
+        <div class="controls">
+            <button class="page-btn" onclick="changePage('articulos',-1)" ${page===0?'disabled':''}>←</button>
+            <button class="page-btn" onclick="changePage('articulos',1)" ${page>=totalPages-1?'disabled':''}>→</button>
+        </div>`;
+    // Toggle visual state
+    const lbl = document.getElementById('srToggleLabel');
+    if (lbl) lbl.classList.toggle('on', !!onlySR);
+}
+
+// ==== Drill-down modals ==================================================
+let MODAL_STACK = [];
+function pushModal(node) { MODAL_STACK.push(node); renderModalFromStack(); }
+function popModalTo(idx) { MODAL_STACK = MODAL_STACK.slice(0, idx+1); renderModalFromStack(); }
+function clearModalStack() { MODAL_STACK = []; }
+// Limpia la pila SOLO si no hay modal abierto. Esto permite que cuando
+// navegás de un modal a otro (ej: PM → Artículo), el breadcrumb conserve la
+// ruta y puedas volver atrás. Cuando entrás desde una tab (no hay modal abierto)
+// la pila empieza limpia.
+function clearModalStackIfClosed() {
+    const overlay = document.getElementById('modalOverlay');
+    if (!overlay || !overlay.classList.contains('show')) {
+        MODAL_STACK = [];
+    }
+}
+function renderModalFromStack() {
+    const top = MODAL_STACK[MODAL_STACK.length-1]; if (!top) return;
+    const crumbs = MODAL_STACK.map((n,i) => i===MODAL_STACK.length-1 ? `<span>${n.crumb}</span>` : `<a onclick="popModalTo(${i})">${n.crumb}</a>`).join(' › ');
+    document.getElementById('modalBreadcrumb').innerHTML = crumbs;
+    document.getElementById('modalTitle').innerHTML = top.title;
+    document.getElementById('modalBody').innerHTML = top.body;
+    document.getElementById('modalOverlay').classList.add('show');
+    if (top.afterRender) setTimeout(top.afterRender, 50);
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); MODAL_STACK = []; }
+
+// Filter rows by single cliente.
+// IMPORTANTE: el mismo cliente (IdCliente) puede tener varias variantes de
+// nombre en los datos del ERP. Para evitar que "falten" transacciones,
+// cuando tenemos cliId usamos eso; si no, expandimos el nombre a todos los
+// IdClientes que usan esa variante y a todas las variantes de esos IDs.
+const NAMEIDX_TO_CLIIDS = new Map(); // nameIdx -> Set<cliId>
+const CLIID_TO_NAMEIDXS = new Map(); // cliId -> Set<nameIdx>
+(function precomputeClienteAliases() {
+    for (let i=0;i<ROWS.length;i++) {
+        const r = ROWS[i];
+        const id = r[C.cliId];
+        const ni = r[C.cli];
+        if (id > 0) {
+            let s = NAMEIDX_TO_CLIIDS.get(ni);
+            if (!s) { s = new Set(); NAMEIDX_TO_CLIIDS.set(ni, s); }
+            s.add(id);
+            let s2 = CLIID_TO_NAMEIDXS.get(id);
+            if (!s2) { s2 = new Set(); CLIID_TO_NAMEIDXS.set(id, s2); }
+            s2.add(ni);
+        }
+    }
+})();
+function rowsForCliente(cliNameIdx, cliId) {
+    const active = STATE.activeRows;
+    const out = [];
+    let targetIds = null;
+    // If cliId provided, use it directly
+    if (cliId != null && cliId > 0) {
+        targetIds = new Set([cliId]);
+    } else if (cliNameIdx != null) {
+        // Expand: find all cliIds linked to this name, then all their rows
+        const ids = NAMEIDX_TO_CLIIDS.get(cliNameIdx);
+        if (ids && ids.size > 0) targetIds = ids;
+    }
+    if (targetIds) {
+        for (let k=0;k<active.length;k++) {
+            const i = active[k];
+            if (targetIds.has(ROWS[i][C.cliId])) out.push(i);
+        }
+    } else if (cliNameIdx != null) {
+        // Fall back to name-based (para filas sin cliId)
+        for (let k=0;k<active.length;k++) {
+            const i = active[k];
+            if (ROWS[i][C.cli] === cliNameIdx) out.push(i);
+        }
+    }
+    return out;
+}
+function rowsForSubcat(subIdx) {
+    const active = STATE.activeRows;
+    const out = [];
+    for (let k=0;k<active.length;k++) {
+        const i = active[k]; if (ROWS[i][C.sub] === subIdx) out.push(i);
+    }
+    return out;
+}
+function rowsForCodigo(codIdx) {
+    const active = STATE.activeRows;
+    const out = [];
+    for (let k=0;k<active.length;k++) {
+        const i = active[k]; if (ROWS[i][C.cod] === codIdx) out.push(i);
+    }
+    return out;
+}
+function aggOnIndexes(indexes, colIdx) {
+    const map = new Map();
+    for (let k=0;k<indexes.length;k++) {
+        const i = indexes[k]; const r = ROWS[i]; const g = r[colIdx];
+        let e = map.get(g); if (!e) { e = {v:0,p:0,q:0,t:0}; map.set(g,e); }
+        e.v += ROW_VEN[i]; e.p += ROW_PROF[i]; e.q += ROW_QTY[i]; e.t += 1;
+    }
+    return map;
+}
+// Agrega por cliente, usando IdCliente cuando está disponible para colapsar
+// variantes de nombre del mismo cliente. Retorna Map<key, {v,p,q,t,nameIdx,cliId}>.
+function aggByClienteEffective(indexes) {
+    const map = new Map();
+    for (let k=0;k<indexes.length;k++) {
+        const i = indexes[k]; const r = ROWS[i];
+        const id = r[C.cliId];
+        const key = id > 0 ? id : (-r[C.cli] - 1000000); // negative = no id
+        let e = map.get(key);
+        if (!e) {
+            e = {v:0, p:0, q:0, t:0, nameIdx:r[C.cli], cliId: id > 0 ? id : null};
+            map.set(key, e);
+        }
+        e.v += ROW_VEN[i]; e.p += ROW_PROF[i]; e.q += ROW_QTY[i]; e.t += 1;
+    }
+    return map;
+}
+function aggTotals(indexes) {
+    let v=0,p=0,q=0;
+    for (let k=0;k<indexes.length;k++) { const i = indexes[k]; v += ROW_VEN[i]; p += ROW_PROF[i]; q += ROW_QTY[i]; }
+    return {v,p,q,t:indexes.length};
+}
+
+// showClienteDetail: find by name
+function showClienteDetail(name, cliId) {
+    clearModalStackIfClosed();
+    const cliNameIdx = LK.clienteName.indexOf(name);
+    if (cliNameIdx < 0 && !cliId) { alert('Cliente no encontrado'); return; }
+    const idxs = rowsForCliente(cliNameIdx, cliId);
+    const tot = aggTotals(idxs);
+    // Yearly: agrupar también idxs por año para poder filtrar la sección de SubCats
+    const yrMap = new Map();
+    const yrIdxsMap = new Map();
+    for (let k=0;k<idxs.length;k++) {
+        const i = idxs[k]; const y = YM_YEAR[ROWS[i][C.ym]];
+        let e = yrMap.get(y);
+        if (!e) { e={v:0,p:0,q:0,t:0}; yrMap.set(y,e); yrIdxsMap.set(y, []); }
+        e.v+=ROW_VEN[i]; e.p+=ROW_PROF[i]; e.q+=ROW_QTY[i]; e.t+=1;
+        yrIdxsMap.get(y).push(i);
+    }
+    const yrArr = [...yrMap.entries()].sort((a,b)=>a[0]-b[0]);
+
+    // Metadata
+    const meta = cliId ? (D.clientesById[cliId] || {}) : {};
+
+    // Estado del modal accesible desde filterClienteByYear() y _cliRenderSubcats()
+    window._cliCtx = { name, cliId, allIdxs: idxs, yrIdxsMap, selectedYear: null };
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">Cliente</div><div class="value" style="font-size:14px">${name}</div><div class="sub">ID: ${cliId||'-'} · ${meta.provincia||''}</div></div>
+            <div class="kpi"><div class="label">Ventas</div><div class="value">${fmtMoney(tot.v)}</div></div>
+            <div class="kpi"><div class="label">Profit</div><div class="value pos">${fmtMoney(tot.p)}</div><div class="sub">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}% margen</div></div>
+            <div class="kpi"><div class="label">Transacciones</div><div class="value">${fmtNum(tot.t)}</div><div class="sub">Cant: ${fmtNum(tot.q)}</div></div>
+            <div class="kpi"><div class="label">Vendedor</div><div class="value" style="font-size:13px">${meta.vendedor||'-'}</div><div class="sub">${meta.clase||''}</div></div>
+        </div>`;
+
+    if (yrArr.length) {
+        body += `<h3 style="margin:14px 0 8px">📅 Evolución por Año <span style="font-size:11px;color:var(--text-dim);font-weight:normal">— click un año para filtrar las subcategorías</span></h3>
+            <div class="table-wrap" style="max-height:220px; margin-bottom:10px"><table id="cli-year-table"><thead><tr><th>Año</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">Margen</th><th class="num">Cantidad</th><th class="num">Trans.</th></tr></thead><tbody>`;
+        yrArr.forEach(([y,e]) => {
+            const m = e.v ? (e.p*100/e.v) : 0;
+            body += `<tr style="cursor:pointer" data-cli-year="${y}" onclick="filterClienteByYear(${y})" title="Click para filtrar subcategorías a ${y}"><td>${y}</td><td class="num">${fmtMoney(e.v)}</td><td class="num pos">${fmtMoney(e.p)}</td><td class="num">${m.toFixed(1)}%</td><td class="num">${fmtNum(e.q)}</td><td class="num">${fmtNum(e.t)}</td></tr>`;
+        });
+        body += '</tbody></table></div>';
+    }
+
+    // Wrapper que llena _cliRenderSubcats() — se re-renderiza al filtrar por año
+    body += `<div id="cli-subcat-wrap"></div>`;
+
+    pushModal({ crumb:'👤 '+name, title:'👤 Cliente: '+name, body, afterRender: () => _cliRenderSubcats() });
+}
+
+// Renderiza la sección de SubCategorías del modal de cliente, respetando el
+// filtro de año seleccionado en window._cliCtx (null = todos los años).
+// build_vendedores.py reemplaza esta función por una versión sin precios.
+function _cliRenderSubcats() {
+    const ctx = window._cliCtx;
+    if (!ctx) return;
+    const wrap = document.getElementById('cli-subcat-wrap');
+    if (!wrap) return;
+    const idxs = ctx.selectedYear == null ? ctx.allIdxs : (ctx.yrIdxsMap.get(ctx.selectedYear) || []);
+    const tot = aggTotals(idxs);
+    const subMap = aggOnIndexes(idxs, C.sub);
+    const subArr = [...subMap.entries()].map(([k,e])=>[LK.subcat[k]||'(sin dato)', e.v, e.p, e.q, e.t]);
+    subArr.sort((a,b)=>b[1]-a[1]);
+    const yrLabel = ctx.selectedYear == null
+        ? ' — click para ver artículos'
+        : ` — <span style="color:var(--accent);font-weight:600">año ${ctx.selectedYear}</span> <a style="color:var(--text-dim);cursor:pointer;font-size:12px;text-decoration:underline;font-weight:normal" onclick="filterClienteByYear(${ctx.selectedYear})">(limpiar filtro)</a>`;
+    let html = `<h3 style="margin:14px 0 8px">📦 SubCategorías compradas${yrLabel}</h3>
+        <div class="table-wrap" style="max-height:500px"><table><thead><tr>
+            <th>SubCategoría</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">% del cliente</th><th class="num">Cant.</th><th class="num">Trans.</th><th></th>
+        </tr></thead><tbody>`;
+    subArr.forEach(s => {
+        const pct = tot.v ? (s[1]*100/tot.v) : 0;
+        html += `<tr>
+            <td class="clickable" onclick="showClienteSubcatArticulos('${escAttr(ctx.name)}', '${escAttr(s[0])}')">${s[0]}</td>
+            <td class="num">${fmtMoney(s[1])}</td>
+            <td class="num pos">${fmtMoney(s[2])}</td>
+            <td class="num">${pct.toFixed(1)}%</td>
+            <td class="num">${fmtNum(s[3])}</td>
+            <td class="num">${fmtNum(s[4])}</td>
+            <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="showClienteSubcatArticulos('${escAttr(ctx.name)}', '${escAttr(s[0])}')">Ver artículos →</button></td>
+        </tr>`;
+    });
+    html += '</tbody></table></div>';
+    wrap.innerHTML = html;
+}
+
+// Toggle del filtro de año dentro del modal de cliente
+function filterClienteByYear(year) {
+    const ctx = window._cliCtx;
+    if (!ctx) return;
+    if (ctx.selectedYear === year) ctx.selectedYear = null;  // segundo click → limpiar
+    else ctx.selectedYear = year;
+    // Resaltar fila activa
+    document.querySelectorAll('#cli-year-table tbody tr').forEach(tr => {
+        const isActive = parseInt(tr.dataset.cliYear) === ctx.selectedYear;
+        tr.style.background = isActive ? 'rgba(59, 130, 246, 0.18)' : '';
+        tr.style.borderLeft = isActive ? '3px solid var(--accent)' : '';
+    });
+    _cliRenderSubcats();
+}
+
+function showClienteSubcatArticulos(cliente, subcat) {
+    const cliIdx = LK.clienteName.indexOf(cliente);
+    const subIdx = LK.subcat.indexOf(subcat);
+    if (subIdx<0 || cliIdx<0) { alert('No encontrado'); return; }
+    // Expand cliente: usar todos los IDs asociados a este nombre (y todas sus
+    // variantes de nombre) para no perder transacciones si el cliente tiene
+    // dos spellings en la data.
+    const cliIds = NAMEIDX_TO_CLIIDS.get(cliIdx);
+    const allNameIdxs = new Set([cliIdx]);
+    if (cliIds && cliIds.size) {
+        cliIds.forEach(id => {
+            const ns = CLIID_TO_NAMEIDXS.get(id);
+            if (ns) ns.forEach(n => allNameIdxs.add(n));
+        });
+    }
+    const active = STATE.activeRows;
+    const idxs = [];
+    for (let k=0;k<active.length;k++) {
+        const i = active[k]; const r = ROWS[i];
+        if (allNameIdxs.has(r[C.cli]) && r[C.sub] === subIdx) idxs.push(i);
+    }
+    const tot = aggTotals(idxs);
+    const artMap = aggOnIndexes(idxs, C.cod);
+    const artArr = [...artMap.entries()].map(([codIdx,e]) => {
+        const codigo = LK.codigo[codIdx] || '';
+        const meta = D.articulosMaster[codigo] || {};
+        return { codigo, articulo:meta.articulo||'', marca:meta.marca||'', ventas:e.v, profit:e.p, cantidad:e.q, trans:e.t };
+    });
+    artArr.sort((a,b)=>b.ventas-a.ventas);
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">Cliente</div><div class="value" style="font-size:14px">${cliente}</div></div>
+            <div class="kpi"><div class="label">SubCategoría</div><div class="value" style="font-size:14px">${subcat}</div></div>
+            <div class="kpi"><div class="label">Ventas</div><div class="value">${fmtMoney(tot.v)}</div></div>
+            <div class="kpi"><div class="label">Profit</div><div class="value pos">${fmtMoney(tot.p)}</div><div class="sub">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}% margen</div></div>
+            <div class="kpi"><div class="label">Cantidad / Trans.</div><div class="value">${fmtNum(tot.q)} / ${fmtNum(tot.t)}</div></div>
+        </div>
+        <h3 style="margin:14px 0 8px">🛒 Artículos comprados (${artArr.length}) — click para ver fechas</h3>
+        <div class="table-wrap" style="max-height:500px"><table><thead><tr>
+            <th>Código</th><th>Artículo</th><th>Marca</th>
+            <th class="num">Ventas</th><th class="num">Profit</th><th class="num">Margen</th>
+            <th class="num">Cantidad</th><th class="num">Trans.</th><th></th>
+        </tr></thead><tbody>`;
+    artArr.forEach(a => {
+        const m = a.ventas ? (a.profit*100/a.ventas) : 0;
+        body += `<tr>
+            <td class="clickable" onclick="showClienteArticuloFechas('${escAttr(cliente)}', '${escAttr(a.codigo)}')">${a.codigo}</td>
+            <td class="clickable truncate" title="${escAttr(a.articulo)}" onclick="showClienteArticuloFechas('${escAttr(cliente)}', '${escAttr(a.codigo)}')">${a.articulo}</td>
+            <td>${a.marca}</td>
+            <td class="num">${fmtMoney(a.ventas)}</td>
+            <td class="num pos">${fmtMoney(a.profit)}</td>
+            <td class="num">${m.toFixed(1)}%</td>
+            <td class="num">${fmtNum(a.cantidad)}</td>
+            <td class="num">${fmtNum(a.trans)}</td>
+            <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="showClienteArticuloFechas('${escAttr(cliente)}', '${escAttr(a.codigo)}')">Ver fechas →</button></td>
+        </tr>`;
+    });
+    body += `<tr style="background:var(--bg-3); font-weight:bold"><td colspan="3">TOTAL</td><td class="num">${fmtMoney(tot.v)}</td><td class="num pos">${fmtMoney(tot.p)}</td><td class="num">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}%</td><td class="num">${fmtNum(tot.q)}</td><td class="num">${fmtNum(tot.t)}</td><td></td></tr>`;
+    body += '</tbody></table></div>';
+    pushModal({ crumb:`📦 ${subcat}`, title:`🛒 ${cliente} → ${subcat}`, body });
+}
+
+// Add the column header "Acciones"
+function showClienteArticuloFechas(cliente, codigo) {
+    const cliIdx = LK.clienteName.indexOf(cliente);
+    const codIdx = LK.codigo.indexOf(codigo);
+    if (cliIdx<0 || codIdx<0) { alert('No encontrado'); return; }
+    const meta = D.articulosMaster[codigo] || {};
+
+    // Expand cliente: agregar todas las variantes de nombre del mismo cliId
+    const cliIds = NAMEIDX_TO_CLIIDS.get(cliIdx);
+    const allNameIdxs = new Set([cliIdx]);
+    if (cliIds && cliIds.size) {
+        cliIds.forEach(id => {
+            const ns = CLIID_TO_NAMEIDXS.get(id);
+            if (ns) ns.forEach(n => allNameIdxs.add(n));
+        });
+    }
+    // Find ALL transactions for this cliente + codigo (respecting active filters)
+    const active = STATE.activeRows;
+    const txns = [];
+    for (let k=0;k<active.length;k++) {
+        const i = active[k]; const r = ROWS[i];
+        if (allNameIdxs.has(r[C.cli]) && r[C.cod] === codIdx) {
+            txns.push({
+                fecha: fmtDate(r[C.days]),
+                cantidad: r[C.qty],
+                ventas: r[C.ven],
+                profit: r[C.prof],
+                plataforma: LK.plat[r[C.plat]] || '',
+                provincia: LK.prov[r[C.prov]] || '',
+                vendedor: LK.vend[r[C.vend]] || '',
+                ym: LK.ym[r[C.ym]],
+                _days: r[C.days]
+            });
+        }
+    }
+    txns.sort((a,b)=>b._days-a._days);  // most recent first
+
+    const tot = txns.reduce((a,t)=>{a.v+=t.ventas;a.p+=t.profit;a.q+=t.cantidad;a.t+=1;return a;}, {v:0,p:0,q:0,t:0});
+    const precios = txns.map(t => t.cantidad>0 ? t.ventas/t.cantidad : 0).filter(p=>p>0);
+    const precioMin = precios.length ? Math.min(...precios) : 0;
+    const precioMax = precios.length ? Math.max(...precios) : 0;
+    const precioProm = tot.q>0 ? tot.v/tot.q : 0;
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">Cliente</div><div class="value" style="font-size:13px; line-height:1.3">${cliente}</div></div>
+            <div class="kpi"><div class="label">Artículo</div><div class="value" style="font-size:11px; line-height:1.3">${meta.articulo||''}</div><div class="sub">[${codigo}] ${meta.marca||''}</div></div>
+            <div class="kpi"><div class="label">Compras totales</div><div class="value">${fmtNum(tot.t)}</div><div class="sub">${fmtNum(tot.q)} unidades</div></div>
+            <div class="kpi"><div class="label">Facturado</div><div class="value">${fmtMoney(tot.v)}</div><div class="sub">${fmtMoney(tot.p)} profit (${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}%)</div></div>
+            <div class="kpi"><div class="label">Precio unitario</div><div class="value">${fmtMoney(precioProm)}</div><div class="sub">min ${fmtMoney(precioMin)} · max ${fmtMoney(precioMax)}</div></div>
+        </div>`;
+
+    // Per-month summary chart
+    const byYM = new Map();
+    txns.forEach(t => { let e = byYM.get(t.ym); if (!e) { e = {q:0, v:0, count:0}; byYM.set(t.ym, e);} e.q += t.cantidad; e.v += t.ventas; e.count += 1; });
+    const ymArr = [...byYM.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+
+    if (ymArr.length > 1) {
+        body += `<h3 style="margin:14px 0 8px">📅 Compras agrupadas por mes</h3>
+            <div class="chart-grid" style="grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:10px">
+                <div class="chart-card"><div class="chart-container" style="height:200px"><canvas id="modalCliArtMesQty"></canvas></div></div>
+                <div class="chart-card"><div class="chart-container" style="height:200px"><canvas id="modalCliArtMesVen"></canvas></div></div>
+            </div>`;
+    }
+
+    body += `<h3 style="margin:14px 0 8px">🧾 Detalle de transacciones (${txns.length}) — ordenadas por fecha (más reciente primero)</h3>
+        <div class="table-wrap" style="max-height:500px"><table><thead><tr>
+            <th>Fecha</th><th class="num">Cantidad</th><th class="num">Importe</th><th class="num">Precio unit.</th><th class="num">Profit</th><th class="num">Margen</th><th>Plataforma</th><th>Provincia</th><th>Vendedor</th>
+        </tr></thead><tbody>`;
+    txns.forEach(t => {
+        const precioU = t.cantidad>0 ? t.ventas/t.cantidad : 0;
+        const margen = t.ventas ? (t.profit*100/t.ventas) : 0;
+        body += `<tr>
+            <td>${t.fecha}</td>
+            <td class="num">${fmtNum(t.cantidad)}</td>
+            <td class="num">${fmtMoney(t.ventas)}</td>
+            <td class="num">${fmtMoney(precioU)}</td>
+            <td class="num ${t.profit>=0?'pos':'neg'}">${fmtMoney(t.profit)}</td>
+            <td class="num">${margen.toFixed(1)}%</td>
+            <td>${t.plataforma}</td>
+            <td>${t.provincia}</td>
+            <td>${t.vendedor}</td>
+        </tr>`;
+    });
+    body += `<tr style="background:var(--bg-3); font-weight:bold">
+        <td>TOTAL ${txns.length} compras</td>
+        <td class="num">${fmtNum(tot.q)}</td>
+        <td class="num">${fmtMoney(tot.v)}</td>
+        <td class="num">${fmtMoney(precioProm)}</td>
+        <td class="num pos">${fmtMoney(tot.p)}</td>
+        <td class="num">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}%</td>
+        <td colspan="3"></td>
+    </tr></tbody></table></div>`;
+
+    const afterRender = () => {
+        if (ymArr.length > 1 && document.getElementById('modalCliArtMesQty')) {
+            destroyChart('modalCliArtMesQty');
+            charts['modalCliArtMesQty'] = new Chart(document.getElementById('modalCliArtMesQty'), {
+                type:'bar',
+                data:{ labels:ymArr.map(x=>x[0]), datasets:[{label:'Cantidad', data:ymArr.map(x=>x[1].q), backgroundColor:'#06b6d4'}]},
+                options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{label:c=>'Cantidad: '+fmtNum(c.raw)}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback:v=>fmtNum(v)}, grid:{color:'#334155'}}}}
+            });
+            destroyChart('modalCliArtMesVen');
+            charts['modalCliArtMesVen'] = new Chart(document.getElementById('modalCliArtMesVen'), {
+                type:'bar',
+                data:{ labels:ymArr.map(x=>x[0]), datasets:[{label:'Importe', data:ymArr.map(x=>x[1].v), backgroundColor:'#3b82f6'}]},
+                options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{label:c=>'Importe: '+fmtMoney(c.raw)}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback:v=>fmtMoney(v)}, grid:{color:'#334155'}}}}
+            });
+        }
+    };
+
+    pushModal({ crumb:`🧾 ${codigo}`, title:`🧾 ${cliente} compró ${meta.articulo||codigo}`, body, afterRender });
+}
+
+function showSubcatDetail(name) {
+    clearModalStackIfClosed();
+    const subIdx = LK.subcat.indexOf(name);
+    if (subIdx<0) { alert('Subcat no encontrada'); return; }
+    const idxs = rowsForSubcat(subIdx);
+    const tot = aggTotals(idxs);
+    // By cliente — agrupa por IdCliente para colapsar variantes de nombre
+    const cliMap = aggByClienteEffective(idxs);
+    const cliArr = [...cliMap.values()].map(e => ({
+        name: LK.clienteName[e.nameIdx] || '(sin dato)',
+        v: e.v, p: e.p, q: e.q, t: e.t, cliId: e.cliId
+    }));
+    cliArr.sort((a,b)=>b.v-a.v);
+    const top100 = cliArr.slice(0,100);
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">SubCategoría</div><div class="value" style="font-size:14px">${name}</div></div>
+            <div class="kpi"><div class="label">Ventas</div><div class="value">${fmtMoney(tot.v)}</div></div>
+            <div class="kpi"><div class="label">Profit</div><div class="value pos">${fmtMoney(tot.p)}</div><div class="sub">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}% margen</div></div>
+            <div class="kpi"><div class="label">Transacciones</div><div class="value">${fmtNum(tot.t)}</div><div class="sub">Cant: ${fmtNum(tot.q)}</div></div>
+            <div class="kpi"><div class="label">Clientes únicos</div><div class="value">${fmtNum(cliArr.length)}</div></div>
+        </div>
+        <h3 style="margin:14px 0 8px">👥 Top 100 Clientes</h3>
+        <div class="table-wrap" style="max-height:500px"><table><thead><tr>
+            <th>#</th><th>Cliente</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">% subcat</th><th class="num">Cant.</th><th class="num">Trans.</th>
+        </tr></thead><tbody>`;
+    top100.forEach((c,i) => {
+        const pct = tot.v ? (c.v*100/tot.v) : 0;
+        body += `<tr>
+            <td>${i+1}</td>
+            <td class="clickable" onclick="showClienteDetail('${escAttr(c.name)}', ${c.cliId||'null'})">${c.name}</td>
+            <td class="num">${fmtMoney(c.v)}</td>
+            <td class="num pos">${fmtMoney(c.p)}</td>
+            <td class="num">${pct.toFixed(1)}%</td>
+            <td class="num">${fmtNum(c.q)}</td>
+            <td class="num">${fmtNum(c.t)}</td>
+        </tr>`;
+    });
+    body += '</tbody></table></div>';
+    pushModal({ crumb:'📦 '+name, title:'📦 SubCategoría: '+name, body });
+}
+
+function showArticuloDetail(codigo) {
+    clearModalStackIfClosed();
+    const codIdx = LK.codigo.indexOf(codigo);
+    const meta = D.articulosMaster[codigo] || {};
+    const sr = SIN_ROT[codigo];
+    const hasSales = codIdx >= 0;
+    const idxs = hasSales ? rowsForCodigo(codIdx) : [];
+    const tot = aggTotals(idxs);
+    // Yearly
+    const yrMap = new Map();
+    for (let k=0;k<idxs.length;k++) { const i = idxs[k]; const y = YM_YEAR[ROWS[i][C.ym]]; let e = yrMap.get(y); if (!e) { e={v:0,p:0,q:0,t:0}; yrMap.set(y,e);} e.v+=ROW_VEN[i]; e.p+=ROW_PROF[i]; e.q+=ROW_QTY[i]; e.t+=1; }
+    const yrArr = [...yrMap.entries()].sort((a,b)=>a[0]-b[0]);
+    // Top clientes (by ventas) — agrupa por IdCliente
+    const cliMap = aggByClienteEffective(idxs);
+    const cliArr = [...cliMap.values()].map(e => [
+        LK.clienteName[e.nameIdx] || '(sin dato)',
+        e.v, e.p, e.q, e.t, e.nameIdx, e.cliId
+    ]);
+    cliArr.sort((a,b)=>b[1]-a[1]);
+    const topCli = cliArr.slice(0,20);
+
+    // ÚLTIMOS 10 clientes (por fecha de última compra) — agrupa por cliId
+    const lastBuy = new Map();
+    for (let k=0;k<idxs.length;k++) {
+        const i = idxs[k]; const r = ROWS[i];
+        const id = r[C.cliId];
+        const key = id > 0 ? id : (-r[C.cli] - 1000000);
+        let e = lastBuy.get(key);
+        if (!e) { e = { lastDays:-1, q:0, v:0, p:0, count:0, plat:'', prov:'', nameIdx:r[C.cli], cliId: id > 0 ? id : null }; lastBuy.set(key, e); }
+        if (r[C.days] > e.lastDays) {
+            e.lastDays = r[C.days];
+            e.plat = LK.plat[r[C.plat]] || '';
+            e.prov = LK.prov[r[C.prov]] || '';
+        }
+        e.q += r[C.qty]; e.v += r[C.ven]; e.p += r[C.prof]; e.count += 1;
+    }
+    const lastBuyArr = [...lastBuy.values()].map(e => ({
+        cliente: LK.clienteName[e.nameIdx]||'(sin dato)', cliId: e.cliId, nameIdx: e.nameIdx,
+        ultima: fmtDate(e.lastDays), days: e.lastDays,
+        cantTotal: e.q, vTotal: e.v, pTotal: e.p, vecesCompro: e.count,
+        plat: e.plat, prov: e.prov
+    }));
+    lastBuyArr.sort((a,b)=>b.days-a.days);
+    const last10 = lastBuyArr.slice(0,10);
+
+    // Stock KPI con bucket más viejo
+    const ag = (typeof __AGING__ !== 'undefined') ? __AGING__[codigo] : null;
+    const colors = ['#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#7c2d12'];
+    const labels = ['0-30 días','30-60 días','60-90 días','90-150 días','150-365 días','+365 días'];
+    const stockKPI = sr
+        ? `<div class="kpi" style="border-color:${ag?colors[ag.old]:'var(--bad)'}"><div class="label" style="color:${ag?colors[ag.old]:'var(--bad)'}">⏱ Aging — bucket más viejo: ${ag?labels[ag.old]:'?'}</div><div class="value" style="color:${ag?colors[ag.old]:'var(--bad)'}">${fmtNum(sr.sr)} uds</div><div class="sub">Físico: ${fmtNum(sr.fis)} · ARS ${ag?fmtMoney(ag.ars):'-'}</div></div>`
+        : '';
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">Código</div><div class="value" style="font-size:14px">${codigo}${sr&&ag?' <span class="sr-badge" style="background:'+colors[ag.old]+'">'+labels[ag.old]+'</span>':sr?' <span class="sr-badge">AGING</span>':''}</div></div>
+            <div class="kpi"><div class="label">Artículo</div><div class="value" style="font-size:12px; line-height:1.3">${meta.articulo||''}</div><div class="sub">${meta.marca||''} · ${meta.subcat||''}</div></div>
+            ${stockKPI}
+            <div class="kpi"><div class="label">Ventas históricas</div><div class="value">${fmtMoney(tot.v)}</div></div>
+            <div class="kpi"><div class="label">Profit</div><div class="value pos">${fmtMoney(tot.p)}</div><div class="sub">${tot.v?(tot.p*100/tot.v).toFixed(1):'0'}% margen</div></div>
+            <div class="kpi"><div class="label">Cantidad / Trans.</div><div class="value">${fmtNum(tot.q)} / ${fmtNum(tot.t)}</div><div class="sub">Ticket: ${tot.t?fmtMoney(tot.v/tot.t):'$0'}</div></div>
+        </div>`;
+
+    if (sr) {
+        const agInfo = ag;
+        let bucketRows = '';
+        if (agInfo) {
+            for (let i=0; i<6; i++) {
+                if (agInfo.b[i] > 0) {
+                    bucketRows += `<tr><td style="color:${colors[i]}; font-weight:600">${labels[i]}</td><td class="num">${fmtNum(agInfo.b[i])}</td><td class="num">${fmtMoney(agInfo.ba[i])}</td><td class="num">USD ${fmtNum(agInfo.bu[i])}</td></tr>`;
+                }
+            }
+        }
+        body += `<div style="background:rgba(239,68,68,.08); border:1px solid var(--bad); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px">
+            <div style="font-weight:600; color:var(--bad); margin-bottom:4px">⏱ Stock en aging</div>
+            <div><strong>${fmtNum(sr.sr)}</strong> unidades en aging de un total físico de <strong>${fmtNum(sr.fis)}</strong>${agInfo ? ` · Costo total: <strong>${fmtMoney(agInfo.ars)}</strong> (USD ${fmtNum(agInfo.usd)})` : ''}.</div>
+            ${sr.deps && sr.deps.length ? `<div style="margin-top:4px; color:var(--text-dim)">Sucursales: ${sr.deps.join(' · ')}</div>` : ''}
+            ${sr.pm && sr.pm.length ? `<div style="color:var(--text-dim)">PM: ${sr.pm.join(', ')}</div>` : ''}
+            ${bucketRows ? `<table style="margin-top:8px; width:100%"><thead><tr style="background:rgba(239,68,68,.15)"><th style="text-align:left; padding:4px 8px">Bucket</th><th class="num" style="padding:4px 8px">Unidades</th><th class="num" style="padding:4px 8px">Costo ARS</th><th class="num" style="padding:4px 8px">Costo USD</th></tr></thead><tbody>${bucketRows}</tbody></table>` : ''}
+        </div>`;
+    }
+
+    if (last10.length) {
+        body += `<h3 style="margin:14px 0 8px">📞 Últimos 10 clientes que compraron — para ofrecer</h3>
+        <div class="table-wrap" style="max-height:340px"><table><thead><tr>
+            <th>#</th><th>Cliente</th><th>Vendedor reciente</th><th>Última compra</th><th class="num">Días atrás</th>
+            <th class="num">Cant. total</th><th class="num">Ventas</th><th class="num">Veces que compró</th>
+            <th>Última plataforma</th><th>Provincia</th>
+        </tr></thead><tbody>`;
+        const today = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+        last10.forEach((c,i) => {
+            const dias = today - c.days;
+            const vend = vendedorReciente(c.nameIdx != null ? c.nameIdx : (NAME_TO_IDX ? NAME_TO_IDX.get(c.cliente) : null), null);
+            body += `<tr>
+                <td>${i+1}</td>
+                <td class="clickable" onclick="showClienteDetail('${escAttr(c.cliente)}', ${c.cliId||'null'})">${c.cliente}</td>
+                <td style="color:var(--accent-2)">${vend||'-'}</td>
+                <td>${c.ultima}</td>
+                <td class="num">${fmtNum(dias)}</td>
+                <td class="num">${fmtNum(c.cantTotal)}</td>
+                <td class="num">${fmtMoney(c.vTotal)}</td>
+                <td class="num">${fmtNum(c.vecesCompro)}</td>
+                <td>${c.plat}</td>
+                <td>${c.prov}</td>
+            </tr>`;
+        });
+        body += '</tbody></table></div>';
+    } else if (sr) {
+        body += '<div class="empty-state">Este artículo nunca se vendió en el histórico, no hay clientes a quien ofrecer.</div>';
+    }
+    if (yrArr.length) {
+        body += `<h3 style="margin:14px 0 8px">📅 Evolución por Año</h3>
+            <div class="chart-grid" style="grid-template-columns: 2fr 1fr; gap:12px; margin-bottom:10px">
+                <div class="chart-card"><div class="chart-container" style="height:220px"><canvas id="modalArtYearChart"></canvas></div></div>
+                <div class="chart-card"><div class="chart-container" style="height:220px"><canvas id="modalArtYearQty"></canvas></div></div>
+            </div>
+            <div class="table-wrap" style="max-height:220px; margin-bottom:10px"><table><thead><tr>
+                <th>Año</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">Margen</th><th class="num">Cantidad</th><th class="num">Trans.</th>
+            </tr></thead><tbody>`;
+        yrArr.forEach(([y,e]) => {
+            const m = e.v ? (e.p*100/e.v) : 0;
+            body += `<tr><td>${y}</td><td class="num">${fmtMoney(e.v)}</td><td class="num pos">${fmtMoney(e.p)}</td><td class="num">${m.toFixed(1)}%</td><td class="num">${fmtNum(e.q)}</td><td class="num">${fmtNum(e.t)}</td></tr>`;
+        });
+        body += '</tbody></table></div>';
+    }
+    // Map cliKey -> lastDays para poder mostrar "Última compra" en la tabla de Top clientes
+    const lastDaysByKey = new Map();
+    lastBuy.forEach((e, key) => { lastDaysByKey.set(key, e.lastDays); });
+    if (topCli.length) {
+        body += `<h3 style="margin:14px 0 8px">👥 Top 20 Clientes que más compraron</h3>
+            <div class="table-wrap" style="max-height:420px"><table><thead><tr>
+                <th>#</th><th>Cliente</th><th>Vendedor reciente</th><th>Última compra</th><th class="num">Días atrás</th><th class="num">Ventas</th><th class="num">Profit</th><th class="num">% del artículo</th><th class="num">Cantidad</th><th class="num">Trans.</th>
+            </tr></thead><tbody>`;
+        const todayDays = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+        topCli.forEach((c,i) => {
+            const pct = tot.v ? (c[1]*100/tot.v) : 0;
+            const vend = vendedorReciente(c[5], null);
+            const key = c[6] > 0 ? c[6] : (-c[5] - 1000000);
+            const lastDays = lastDaysByKey.get(key);
+            const ultima = (lastDays != null && lastDays >= 0) ? fmtDate(lastDays) : '-';
+            const dias = (lastDays != null && lastDays >= 0) ? (todayDays - lastDays) : null;
+            const diasColor = dias == null ? 'var(--text-dim)' : (dias <= 180 ? 'var(--good)' : (dias <= 730 ? 'var(--warn)' : 'var(--bad)'));
+            body += `<tr>
+                <td>${i+1}</td>
+                <td class="clickable" onclick="showClienteDetail('${escAttr(c[0])}', ${c[6]||'null'})">${c[0]||'(sin dato)'}</td>
+                <td style="color:var(--accent-2)">${vend||'-'}</td>
+                <td>${ultima}</td>
+                <td class="num" style="color:${diasColor}; font-weight:600">${dias != null ? fmtNum(dias) : '-'}</td>
+                <td class="num">${fmtMoney(c[1])}</td>
+                <td class="num pos">${fmtMoney(c[2])}</td>
+                <td class="num">${pct.toFixed(1)}%</td>
+                <td class="num">${fmtNum(c[3])}</td>
+                <td class="num">${fmtNum(c[4])}</td>
+            </tr>`;
+        });
+        body += '</tbody></table></div>';
+    }
+    const afterRender = () => {
+        if (yrArr.length && document.getElementById('modalArtYearChart')) {
+            destroyChart('modalArtYearChart');
+            charts['modalArtYearChart'] = new Chart(document.getElementById('modalArtYearChart'), {
+                type:'bar',
+                data:{ labels:yrArr.map(y=>y[0]), datasets:[
+                    {label:'Ventas', data:yrArr.map(y=>y[1].v), backgroundColor:'#3b82f6'},
+                    {label:'Profit', data:yrArr.map(y=>y[1].p), backgroundColor:'#10b981'}]},
+                options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtMoney(c.raw)}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback:v=>fmtMoney(v)}, grid:{color:'#334155'}}}}
+            });
+            destroyChart('modalArtYearQty');
+            charts['modalArtYearQty'] = new Chart(document.getElementById('modalArtYearQty'), {
+                type:'bar',
+                data:{ labels:yrArr.map(y=>y[0]), datasets:[{label:'Cantidad', data:yrArr.map(y=>y[1].q), backgroundColor:'#f59e0b'}]},
+                options:{maintainAspectRatio:false, plugins:{legend:{labels:{color:'#cbd5e1'}}, tooltip:{callbacks:{label:c=>'Cantidad: '+fmtNum(c.raw)}}}, scales:{x:{ticks:{color:'#94a3b8'}, grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8', callback:v=>fmtNum(v)}, grid:{color:'#334155'}}}}
+            });
+        }
+    };
+    pushModal({ crumb:'🛒 '+codigo, title:`🛒 Artículo: ${meta.articulo||codigo}`, body, afterRender });
+}
+
+// ==== Cruce tab ==========================================================
+function renderCruce() {
+    const mode = document.getElementById('cruceMode').value;
+    const q = document.getElementById('searchCruce').value.toLowerCase().trim();
+    const cont = document.getElementById('cruceContent');
+    if (!q) { cont.innerHTML = '<div class="empty-state">Escribí para buscar. Hacé click en un cliente/subcategoría para ver el detalle cruzado (y hacer drill-down a los artículos).</div>'; return; }
+    if (mode === 'cli') {
+        const cliMap = aggregateCli();
+        const rows = [];
+        cliMap.forEach((e,id) => {
+            const name = LK.clienteName[e.nIdx] || '';
+            if (!name.toLowerCase().includes(q)) return;
+            rows.push({ id, name, v:e.v, p:e.p, nIdx:e.nIdx });
+        });
+        rows.sort((a,b)=>b.v-a.v);
+        const top = rows.slice(0,30);
+        if (!top.length) { cont.innerHTML = '<div class="empty-state">Sin resultados</div>'; return; }
+        let html = '<div class="table-wrap"><table><thead><tr><th>Cliente</th><th class="num">Ventas</th><th class="num">Profit</th><th>Top 1</th><th>Top 2</th><th>Top 3</th></tr></thead><tbody>';
+        top.forEach(c => {
+            const idxs = rowsForCliente(c.nIdx, c.id);
+            const sm = aggOnIndexes(idxs, C.sub);
+            const sa = [...sm.entries()].map(([k,e])=>[LK.subcat[k]||'(sin dato)', e.v]).sort((a,b)=>b[1]-a[1]);
+            html += `<tr>
+                <td class="clickable" onclick="showClienteDetail('${escAttr(c.name)}', ${c.id})">${c.name}</td>
+                <td class="num">${fmtMoney(c.v)}</td><td class="num pos">${fmtMoney(c.p)}</td>
+                <td>${sa[0]?sa[0][0]:'-'}</td><td>${sa[1]?sa[1][0]:'-'}</td><td>${sa[2]?sa[2][0]:'-'}</td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>';
+        cont.innerHTML = html;
+    } else {
+        const subMap = aggregate(C.sub);
+        const rows = [];
+        subMap.forEach((e,k) => {
+            const name = LK.subcat[k] || '';
+            if (!name.toLowerCase().includes(q)) return;
+            rows.push({ name, v:e.v, p:e.p, kIdx:k });
+        });
+        rows.sort((a,b)=>b.v-a.v);
+        const top = rows.slice(0,30);
+        if (!top.length) { cont.innerHTML = '<div class="empty-state">Sin resultados</div>'; return; }
+        let html = '<div class="table-wrap"><table><thead><tr><th>SubCategoría</th><th class="num">Ventas</th><th class="num">Profit</th><th>Top Cliente 1</th><th>Top Cliente 2</th><th>Top Cliente 3</th></tr></thead><tbody>';
+        top.forEach(s => {
+            const idxs = rowsForSubcat(s.kIdx);
+            const cm = aggByClienteEffective(idxs);
+            const ca = [...cm.values()].map(e => [LK.clienteName[e.nameIdx]||'(sin dato)', e.v]).sort((a,b)=>b[1]-a[1]);
+            html += `<tr>
+                <td class="clickable" onclick="showSubcatDetail('${escAttr(s.name)}')">${s.name}</td>
+                <td class="num">${fmtMoney(s.v)}</td><td class="num pos">${fmtMoney(s.p)}</td>
+                <td>${ca[0]?ca[0][0]:'-'}</td><td>${ca[1]?ca[1][0]:'-'}</td><td>${ca[2]?ca[2][0]:'-'}</td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>';
+        cont.innerHTML = html;
+    }
+}
+
+// ==== SIN ROTACIÓN: PMs ranking, Clientes oportunidad, Subcat/Marca ======
+// Pre-compute SR derived structures once
+const SR_KEYS = Object.keys(SIN_ROT);
+function buildSRIndexes() {
+    // ---- Parte stock-only: no depende de los filtros globales ----
+    if (!STATE.srStockIdx) {
+        const pmMap = new Map();
+        const subcatMap = new Map();
+        const marcaMap = new Map();
+        const srCodIdxSet = new Set();
+        SR_KEYS.forEach(codigo => {
+            const sr = SIN_ROT[codigo];
+            const meta = D.articulosMaster[codigo] || {};
+            const pms = sr.pm && sr.pm.length ? sr.pm : ['(sin PM)'];
+            pms.forEach(pm => {
+                let e = pmMap.get(pm);
+                if (!e) { e = { codigos:0, units:0, fis:0, codes:[] }; pmMap.set(pm, e); }
+                const share = 1/pms.length;
+                e.codigos += share;
+                e.units += sr.sr * share;
+                e.fis += sr.fis * share;
+                if (e.codes.length < 5000) e.codes.push(codigo);
+            });
+            const sub = meta.subcat || '(sin dato)';
+            let s = subcatMap.get(sub);
+            if (!s) { s = { codigos:0, units:0, fis:0 }; subcatMap.set(sub, s); }
+            s.codigos += 1; s.units += sr.sr; s.fis += sr.fis;
+            const marca = meta.marca || '(sin dato)';
+            let mk = marcaMap.get(marca);
+            if (!mk) { mk = { codigos:0, units:0, fis:0 }; marcaMap.set(marca, mk); }
+            mk.codigos += 1; mk.units += sr.sr; mk.fis += sr.fis;
+            const i = CODIGO_TO_IDX ? CODIGO_TO_IDX.get(codigo) : LK.codigo.indexOf(codigo);
+            if (i != null && i >= 0) srCodIdxSet.add(i);
+        });
+
+        // Maps estáticos de nombre → info (vendedor/provincia/clase) desde clientesById
+        const nameToVendedor = new Map();
+        const nameToProvincia = new Map();
+        const nameToClase = new Map();
+        Object.values(D.clientesById).forEach(c => {
+            const ni = NAME_TO_IDX ? NAME_TO_IDX.get(c.nombre) : LK.clienteName.indexOf(c.nombre);
+            if (ni != null && ni >= 0) {
+                if (c.vendedor && !nameToVendedor.has(ni)) nameToVendedor.set(ni, c.vendedor);
+                if (c.provincia && !nameToProvincia.has(ni)) nameToProvincia.set(ni, c.provincia);
+                if (c.clase && !nameToClase.has(ni)) nameToClase.set(ni, c.clase);
+            }
+        });
+        STATE.srStockIdx = { pmMap, subcatMap, marcaMap, srCodIdxSet, nameToVendedor, nameToProvincia, nameToClase };
+    }
+
+    // ---- Parte client-based: respeta los filtros globales ----
+    // Cache invalidada cuando cambian filtros (buildActiveRows resetea aggCache y srClientIdx).
+    if (!STATE.srClientIdx) {
+        const { srCodIdxSet } = STATE.srStockIdx;
+        const cliMap = new Map();
+        const active = STATE.activeRows;
+        for (let k=0; k<active.length; k++) {
+            const i = active[k];
+            const r = ROWS[i];
+            if (!srCodIdxSet.has(r[C.cod])) continue;
+            const cn = r[C.cli];
+            let e = cliMap.get(cn);
+            if (!e) { e = { codigos:new Set(), units:0, ventas:0, profit:0, lastDays:-1, count:0 }; cliMap.set(cn, e); }
+            e.codigos.add(r[C.cod]);
+            e.units += ROW_QTY[i];
+            e.ventas += ROW_VEN[i];
+            e.profit += ROW_PROF[i];
+            if (r[C.days] > e.lastDays) e.lastDays = r[C.days];
+            e.count += 1;
+        }
+        // Totales históricos por cliente (dentro del scope filtrado)
+        const cliTotal = aggregateCli();
+        const nameToTotal = new Map();
+        const nameToTransTotales = new Map();
+        cliTotal.forEach((e, id) => {
+            nameToTotal.set(e.nIdx, (nameToTotal.get(e.nIdx)||0) + e.v);
+            nameToTransTotales.set(e.nIdx, (nameToTransTotales.get(e.nIdx)||0) + e.t);
+        });
+        STATE.srClientIdx = { cliMap, nameToTotal, nameToTransTotales };
+    }
+
+    // Merge ambas partes en el objeto que consumen las funciones existentes
+    return { ...STATE.srStockIdx, ...STATE.srClientIdx };
+}
+
+// ==== Helper unificado: ¿pasa este código de aging los filtros activos? ====
+// Filtros stock (categoría / marca) → matchean contra metadata del artículo.
+// Filtros transaccionales (año, mes, plataforma, provincia, clase) → el código
+// debe haber sido vendido en una transacción que pase esos filtros.
+function _agingFilterContext() {
+    const fCatName = STATE.filters.cat >= 0 ? LK.cat[STATE.filters.cat] : null;
+    const f = STATE.filters;
+    // Marca ahora es multi-select → set de nombres
+    const fMarcaSet = (f.marcas && f.marcas.length) ? new Set(f.marcas.map(i => LK.marca[i])) : null;
+    // Compat con código viejo que usa fMarcaName (single string)
+    const fMarcaName = fMarcaSet && fMarcaSet.size === 1 ? [...fMarcaSet][0] : null;
+    const hasTxnFilter = (f.years && f.years.length) || (f.months && f.months.length)
+                        || (f.plats && f.plats.length) || (f.clases && f.clases.length)
+                        || (f.vends && f.vends.length)
+                        || f.prov >= 0;
+    let codesInScope = null;
+    if (hasTxnFilter) {
+        // Build set of codigo strings that appear in active rows
+        codesInScope = new Set();
+        const active = STATE.activeRows;
+        for (let k=0; k<active.length; k++) {
+            const r = ROWS[active[k]];
+            const cIdx = r[C.cod];
+            const codigo = LK.codigo[cIdx];
+            if (codigo) codesInScope.add(codigo);
+        }
+    }
+    return { fCatName, fMarcaName, fMarcaSet, hasTxnFilter, codesInScope };
+}
+function agingPasses(codigo, ctx) {
+    if (!ctx) ctx = _agingFilterContext();
+    if (ctx.fCatName || ctx.fMarcaSet) {
+        const meta = D.articulosMaster[codigo] || {};
+        if (ctx.fCatName && meta.cat !== ctx.fCatName) return false;
+        if (ctx.fMarcaSet && !ctx.fMarcaSet.has(meta.marca)) return false;
+    }
+    if (ctx.codesInScope && !ctx.codesInScope.has(codigo)) return false;
+    return true;
+}
+
+function totalSinRotKPIs() {
+    const ctx = _agingFilterContext();
+    let totalUnits = 0, totalCodes = 0, sinVentaHistorica = 0;
+    const pmsSet = new Set();
+    SR_KEYS.forEach(c => {
+        if (!agingPasses(c, ctx)) return;
+        totalCodes += 1;
+        totalUnits += SIN_ROT[c].sr;
+        if (!D.articulosMaster[c]) sinVentaHistorica += 1;
+        else {
+            const cIdx = LK.codigo.indexOf(c);
+            if (cIdx < 0) sinVentaHistorica += 1;
+        }
+        const sr = SIN_ROT[c];
+        const pms = sr.pm && sr.pm.length ? sr.pm : ['(sin PM)'];
+        pms.forEach(p => pmsSet.add(p));
+    });
+    const idx = buildSRIndexes();
+    return { totalUnits, totalCodes, sinVentaHistorica, pms: pmsSet.size, oportClientes: idx.cliMap.size };
+}
+
+function renderSinRotKPIs() {
+    const k = totalSinRotKPIs();
+    document.getElementById('sinrotKPIs').innerHTML = `
+        <div class="kpi" style="border-color:var(--bad)"><div class="label" style="color:var(--bad)">Códigos en aging</div><div class="value">${fmtNum(k.totalCodes)}</div><div class="sub">${fmtNum(k.sinVentaHistorica)} sin venta histórica</div></div>
+        <div class="kpi" style="border-color:var(--bad)"><div class="label" style="color:var(--bad)">Unidades en aging</div><div class="value">${fmtNum(k.totalUnits)}</div></div>
+        <div class="kpi"><div class="label">PMs con stock muerto</div><div class="value">${fmtNum(k.pms)}</div></div>
+        <div class="kpi"><div class="label">Clientes con compras de art. en aging</div><div class="value">${fmtNum(k.oportClientes)}</div><div class="sub">candidatos a re-ofrecer</div></div>
+    `;
+}
+
+function renderSRPMs() {
+    const q = (document.getElementById('searchSRPm')?.value||'').toLowerCase().trim();
+    const idx = buildSRIndexes();
+    // Aplicar todos los filtros (cat/marca + transaccionales)
+    const ctx = _agingFilterContext();
+    let pmMapEffective = idx.pmMap;
+    if (ctx.fCatName || ctx.fMarcaSet || ctx.codesInScope) {
+        pmMapEffective = new Map();
+        Object.entries(__AGING__||{}).forEach(([codigo, e]) => {
+            if (!agingPasses(codigo, ctx)) return;
+            const pms = e.pm && e.pm.length ? e.pm : ['(sin PM)'];
+            pms.forEach(pm => {
+                let entry = pmMapEffective.get(pm);
+                if (!entry) { entry = { codigos:0, units:0, fis:0, codes:[] }; pmMapEffective.set(pm, entry); }
+                const share = 1/pms.length;
+                entry.codigos += share;
+                entry.units += e.ag * share;
+                entry.fis += e.fis * share;
+                if (entry.codes.length < 5000) entry.codes.push(codigo);
+            });
+        });
+    }
+    const rows = [];
+    pmMapEffective.forEach((e, pm) => {
+        if (q && !pm.toLowerCase().includes(q)) return;
+        rows.push({ pm, codigos: e.codigos, units: e.units, fis: e.fis, share: e.fis>0?(e.units/e.fis*100):0 });
+    });
+    const s = STATE.sort.srpms || {key:'units', dir:'desc'};
+    rows.sort((a,b)=>{ const va=a[s.key], vb=b[s.key]; const m=s.dir==='desc'?-1:1; if (typeof va==='number') return (va-vb)*m; return String(va).localeCompare(String(vb))*m; });
+    const totalU = rows.reduce((a,r)=>a+r.units,0);
+    let html = `<table><thead><tr>
+        <th onclick="sortSR('srpms','pm')">PM Responsable</th>
+        <th class="num" onclick="sortSR('srpms','codigos')">Códigos en aging</th>
+        <th class="num" onclick="sortSR('srpms','units')">Unidades en aging</th>
+        <th class="num" onclick="sortSR('srpms','fis')">Stock físico</th>
+        <th class="num" onclick="sortSR('srpms','share')">% muerto</th>
+        <th class="num">% del total</th>
+        <th></th>
+    </tr></thead><tbody>`;
+    rows.forEach(r => {
+        const pctTotal = totalU ? (r.units*100/totalU) : 0;
+        html += `<tr>
+            <td>${r.pm}</td>
+            <td class="num">${fmtNum(Math.round(r.codigos))}</td>
+            <td class="num" style="color:var(--bad); font-weight:600">${fmtNum(Math.round(r.units))}</td>
+            <td class="num">${fmtNum(Math.round(r.fis))}</td>
+            <td class="num">${r.share.toFixed(1)}%</td>
+            <td class="num">${pctTotal.toFixed(1)}%</td>
+            <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="showPMArticles('${escAttr(r.pm)}')">Ver artículos →</button></td>
+        </tr>`;
+    });
+    html += `<tr style="background:var(--bg-3); font-weight:bold"><td>TOTAL ${rows.length} PMs</td><td></td><td class="num" style="color:var(--bad)">${fmtNum(Math.round(totalU))}</td><td colspan="4"></td></tr></tbody></table>`;
+    document.getElementById('tableSRPms').innerHTML = html;
+    STATE.lastSRPms = rows;
+}
+
+function sortSR(view, key) {
+    const cur = STATE.sort[view] || {key:null, dir:'desc'};
+    if (cur.key === key) cur.dir = cur.dir==='desc'?'asc':'desc';
+    else { cur.key = key; cur.dir = 'desc'; }
+    STATE.sort[view] = cur;
+    if (view==='srpms') renderSRPMs();
+    else if (view==='sropor') renderSROport();
+    else if (view==='srsub') renderSRSubcat();
+}
+
+function showPMArticles(pm) {
+    clearModalStackIfClosed();
+    const idx = buildSRIndexes();
+    const e = idx.pmMap.get(pm);
+    if (!e) return;
+    // List codigos for this PM (con costos de aging)
+    let totalARS = 0, totalUSD = 0;
+    const arts = e.codes.map(codigo => {
+        const sr = SIN_ROT[codigo];
+        const meta = D.articulosMaster[codigo] || {};
+        const ag = (typeof __AGING__ !== 'undefined') ? __AGING__[codigo] : null;
+        const ars = ag ? (ag.ars || 0) : 0;
+        const usd = ag ? (ag.usd || 0) : 0;
+        totalARS += ars;
+        totalUSD += usd;
+        return { codigo, articulo: meta.articulo||'(sin nombre)', marca: meta.marca||'', subcat: meta.subcat||'', sr: sr.sr, fis: sr.fis, deps: sr.deps||[], ars, usd };
+    });
+
+    // Estado para los botones de export del modal de PM
+    window._pmCtx = {
+        pm: pm,
+        totalCodes: arts.length,
+        totalUnits: Math.round(e.units),
+        totalFis: Math.round(e.fis),
+        totalARS: totalARS,
+        totalUSD: totalUSD,
+        arts: arts,
+        hasPrices: true
+    };
+
+    let body = `
+        <div class="kpis">
+            <div class="kpi"><div class="label">PM</div><div class="value" style="font-size:14px">${pm}</div></div>
+            <div class="kpi" style="border-color:var(--bad)"><div class="label" style="color:var(--bad)">Códigos en aging</div><div class="value">${fmtNum(arts.length)}</div></div>
+            <div class="kpi" style="border-color:var(--bad)"><div class="label" style="color:var(--bad)">Unidades en aging</div><div class="value">${fmtNum(Math.round(e.units))}</div></div>
+            <div class="kpi"><div class="label">Stock físico total</div><div class="value">${fmtNum(Math.round(e.fis))}</div></div>
+            <div class="kpi" style="border-color:var(--warn)"><div class="label" style="color:var(--warn)">Costo total ARS</div><div class="value" style="font-size:16px">${fmtMoney(totalARS)}</div></div>
+            <div class="kpi" style="border-color:var(--warn)"><div class="label" style="color:var(--warn)">Costo total USD</div><div class="value" style="font-size:16px">USD ${fmtNum(totalUSD)}</div></div>
+        </div>
+        <div style="margin:12px 0 4px; display:flex; gap:8px">
+            <button class="btn" onclick="exportPMCSV()" style="background:var(--accent)">⬇ Exportar a Excel</button>
+            <button class="btn" onclick="exportPMPDF()" style="background:var(--accent-2)">🖨 Exportar a PDF</button>
+        </div>
+        <h3 style="margin:14px 0 8px">📋 Artículos en aging a su cargo</h3>
+        <div class="table-wrap" style="max-height:520px"><table style="table-layout:fixed; width:100%"><thead><tr>
+            <th style="width:9%">Código</th>
+            <th style="width:30%">Artículo</th>
+            <th style="width:11%">Marca</th>
+            <th style="width:14%">SubCategoría</th>
+            <th class="num" style="width:8%">Stock aging</th>
+            <th class="num" style="width:10%">Costo ARS</th>
+            <th class="num" style="width:10%">Costo USD</th>
+            <th class="num" style="width:8%">Físico</th>
+        </tr></thead><tbody>`;
+    const _agColors = ['#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#7c2d12'];
+    const _agLabels = ['0-30d','30-60d','60-90d','90-150d','150-365d','+365d'];
+    // Sort: oldest aging first, then by units desc
+    arts.sort((a,b) => {
+        const agA = (typeof __AGING__ !== 'undefined') ? __AGING__[a.codigo] : null;
+        const agB = (typeof __AGING__ !== 'undefined') ? __AGING__[b.codigo] : null;
+        const oA = agA && typeof agA.old === 'number' ? agA.old : 5;
+        const oB = agB && typeof agB.old === 'number' ? agB.old : 5;
+        if (oB !== oA) return oB - oA;
+        return b.sr - a.sr;
+    });
+    arts.forEach(a => {
+        const agInfo = (typeof __AGING__ !== 'undefined') ? __AGING__[a.codigo] : null;
+        const oldIdx = agInfo && typeof agInfo.old === 'number' ? agInfo.old : 5;
+        const agColor = _agColors[oldIdx] || '#7c2d12';
+        const agLabel = _agLabels[oldIdx] || 'AGING';
+        body += `<tr class="sin-rot" data-codigo="${escAttr(a.codigo)}">
+            <td class="clickable" onclick="showArticuloDetail('${escAttr(a.codigo)}')">${a.codigo} <span class="sr-badge" style="background:${agColor}">${agLabel}</span></td>
+            <td title="${escAttr(a.articulo)}" style="white-space:normal; word-wrap:break-word; overflow-wrap:anywhere; line-height:1.3">${a.articulo}</td>
+            <td>${a.marca}</td>
+            <td>${a.subcat}</td>
+            <td class="num" style="color:${agColor}; font-weight:600">${fmtNum(a.sr)}</td>
+            <td class="num">${fmtMoney(a.ars)}</td>
+            <td class="num">USD ${fmtNum(a.usd)}</td>
+            <td class="num">${fmtNum(a.fis)}</td>
+        </tr>`;
+    });
+    body += '</tbody></table></div>';
+    pushModal({ crumb:'📋 '+pm, title:'📋 PM: '+pm, body });
+}
+
+// Helper: lee el orden actual de filas del modal abierto.
+// Permite que los exports respeten el sort que el usuario aplicó clickeando
+// los headers de la tabla.
+function _orderArtsByCurrentDOM(arts) {
+    const tbody = document.querySelector('#modalBody tbody');
+    if (!tbody) return arts;
+    const rows = tbody.querySelectorAll('tr[data-codigo]');
+    if (!rows.length) return arts;
+    const order = [...rows].map(r => r.dataset.codigo);
+    const map = new Map(arts.map(a => [String(a.codigo), a]));
+    const ordered = order.map(c => map.get(String(c))).filter(Boolean);
+    // Por seguridad, agregar cualquier art que no esté en el DOM
+    if (ordered.length < arts.length) {
+        const seen = new Set(ordered.map(a => String(a.codigo)));
+        arts.forEach(a => { if (!seen.has(String(a.codigo))) ordered.push(a); });
+    }
+    return ordered;
+}
+
+// ====== Export del modal de PM ======
+function exportPMCSV() {
+    const ctx = window._pmCtx;
+    if (!ctx) { alert('No hay datos para exportar'); return; }
+    const rows = [];
+    rows.push(['PM', ctx.pm]);
+    rows.push(['Códigos en aging', ctx.totalCodes]);
+    rows.push(['Unidades en aging', ctx.totalUnits]);
+    rows.push(['Stock físico total', ctx.totalFis]);
+    if (ctx.hasPrices) {
+        rows.push(['Costo total ARS', Math.round(ctx.totalARS || 0)]);
+        rows.push(['Costo total USD', Math.round(ctx.totalUSD || 0)]);
+    }
+    rows.push(['Generado', new Date().toLocaleString('es-AR')]);
+    rows.push([]);
+    const headers = ['Código', 'Artículo', 'Marca', 'SubCategoría', 'Stock aging', 'Físico'];
+    if (ctx.hasPrices) {
+        headers.push('Costo ARS');
+        headers.push('Costo USD');
+    }
+    rows.push(headers);
+    _orderArtsByCurrentDOM(ctx.arts).forEach(a => {
+        const row = [a.codigo, a.articulo, a.marca, a.subcat, a.sr, a.fis];
+        if (ctx.hasPrices) {
+            row.push(Math.round(a.ars || 0));
+            row.push(Math.round(a.usd || 0));
+        }
+        rows.push(row);
+    });
+    const csv = '\ufeff' + rows.map(r => r.map(_csvEscape).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    link.href = url;
+    link.download = `Aging_PM_${_safeFilename(ctx.pm)}_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportPMPDF() {
+    const ctx = window._pmCtx;
+    if (!ctx) { alert('No hay datos para exportar'); return; }
+    const win = window.open('', '_blank', 'width=1200,height=800');
+    if (!win) { alert('Popup bloqueado. Habilita popups para este sitio.'); return; }
+    const today = new Date().toLocaleString('es-AR');
+    const safeName = (s) => String(s || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    const kpiCount = ctx.hasPrices ? 6 : 4;
+    let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Aging — PM: ${safeName(ctx.pm)}</title><style>
+        @page { size: A4 landscape; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; padding: 16px; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        h2 { font-size: 12px; margin: 14px 0 6px; }
+        .kpis { display: grid; grid-template-columns: repeat(${kpiCount}, 1fr); gap: 6px; margin-bottom: 12px; }
+        .kpi { border: 1px solid #ccc; padding: 6px 8px; }
+        .kpi-label { font-size: 8px; color: #555; text-transform: uppercase; letter-spacing: .5px; }
+        .kpi-value { font-size: 11px; font-weight: bold; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+        th { background: #1e293b; color: #fff; padding: 5px 6px; text-align: left; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; word-wrap: break-word; }
+        .num { text-align: right; }
+        .footer { margin-top: 16px; font-size: 8px; color: #888; text-align: right; }
+        @media print { body { padding: 0; } .no-print { display: none; } }
+    </style></head><body>
+        <h1>📋 PM: ${safeName(ctx.pm)} — Artículos en aging a su cargo</h1>
+        <div class="kpis">
+            <div class="kpi"><div class="kpi-label">PM</div><div class="kpi-value">${safeName(ctx.pm)}</div></div>
+            <div class="kpi"><div class="kpi-label">Códigos en aging</div><div class="kpi-value">${fmtNum(ctx.totalCodes)}</div></div>
+            <div class="kpi"><div class="kpi-label">Unidades en aging</div><div class="kpi-value">${fmtNum(ctx.totalUnits)}</div></div>
+            <div class="kpi"><div class="kpi-label">Stock físico total</div><div class="kpi-value">${fmtNum(ctx.totalFis)}</div></div>
+            ${ctx.hasPrices ? `<div class="kpi"><div class="kpi-label">Costo total ARS</div><div class="kpi-value">${fmtMoney(ctx.totalARS)}</div></div>` : ''}
+            ${ctx.hasPrices ? `<div class="kpi"><div class="kpi-label">Costo total USD</div><div class="kpi-value">USD ${fmtNum(ctx.totalUSD)}</div></div>` : ''}
+        </div>
+        <h2>📋 Artículos en aging</h2>
+        <table><thead><tr>
+            <th style="width:8%">Código</th>
+            <th style="width:${ctx.hasPrices ? 28 : 36}%">Artículo</th>
+            <th style="width:11%">Marca</th>
+            <th style="width:13%">SubCategoría</th>
+            <th class="num" style="width:8%">Stock aging</th>
+            <th class="num" style="width:7%">Físico</th>
+            ${ctx.hasPrices ? '<th class="num" style="width:11%">Costo ARS</th><th class="num" style="width:10%">Costo USD</th>' : ''}
+        </tr></thead><tbody>`;
+    _orderArtsByCurrentDOM(ctx.arts).forEach(a => {
+        html += `<tr>
+            <td>${safeName(a.codigo)}</td>
+            <td>${safeName(a.articulo)}</td>
+            <td>${safeName(a.marca)}</td>
+            <td>${safeName(a.subcat)}</td>
+            <td class="num">${fmtNum(a.sr)}</td>
+            <td class="num">${fmtNum(a.fis)}</td>
+            ${ctx.hasPrices ? `<td class="num">${fmtMoney(a.ars)}</td><td class="num">USD ${fmtNum(a.usd)}</td>` : ''}
+        </tr>`;
+    });
+    html += `</tbody></table>
+        <div class="footer">Generado el ${today} · Dashboard Ventas Núcleo</div>
+        <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };<\/script>
+    </body></html>`;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+}
+
+function renderSROport() {
+    const q = (document.getElementById('searchSROport')?.value||'').toLowerCase().trim();
+    const topN = +(document.getElementById('oportTopN')?.value||500);
+    const recency = +(document.getElementById('oportRecency')?.value||0);
+    const idx = buildSRIndexes();
+
+    // Sort all clientes by total ventas históricas, take top N
+    const ranked = [...idx.nameToTotal.entries()].sort((a,b)=>b[1]-a[1]);
+    const topSet = new Set();
+    if (topN === 0) {
+        ranked.forEach(([nIdx])=>topSet.add(nIdx));
+    } else {
+        ranked.slice(0, topN).forEach(([nIdx])=>topSet.add(nIdx));
+    }
+
+    const today = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+    const rows = [];
+    idx.cliMap.forEach((e, nIdx) => {
+        if (!topSet.has(nIdx)) return;
+        const dias = today - e.lastDays;
+        if (recency && dias > recency) return;
+        const name = LK.clienteName[nIdx] || '(sin dato)';
+        if (q && !name.toLowerCase().includes(q)) return;
+        rows.push({
+            cliente: name, nIdx,
+            vendedor: idx.nameToVendedor.get(nIdx) || '(sin asignar)',
+            provincia: idx.nameToProvincia.get(nIdx) || '',
+            srArticulos: e.codigos.size, units: e.units, ventas: e.ventas, profit: e.profit,
+            ultima: fmtDate(e.lastDays), dias, ventasTotales: idx.nameToTotal.get(nIdx)||0,
+            count: e.count
+        });
+    });
+    const s = STATE.sort.sropor || {key:'srArticulos', dir:'desc'};
+    rows.sort((a,b)=>{ const va=a[s.key], vb=b[s.key]; const m=s.dir==='desc'?-1:1; if (typeof va==='number') return (va-vb)*m; return String(va).localeCompare(String(vb))*m; });
+
+    let html = `<table><thead><tr>
+        <th onclick="sortSR('sropor','cliente')">Cliente</th>
+        <th onclick="sortSR('sropor','vendedor')">Vendedor</th>
+        <th onclick="sortSR('sropor','provincia')">Provincia</th>
+        <th class="num" onclick="sortSR('sropor','srArticulos')">Art. en aging</th>
+        <th class="num" onclick="sortSR('sropor','units')">Cant. histórica</th>
+        <th class="num" onclick="sortSR('sropor','ventas')">Ventas (de art. en aging)</th>
+        <th class="num" onclick="sortSR('sropor','ventasTotales')">Ventas totales</th>
+        <th onclick="sortSR('sropor','ultima')">Última compra (aging)</th>
+        <th class="num" onclick="sortSR('sropor','dias')">Días</th>
+        <th></th>
+    </tr></thead><tbody>`;
+    rows.slice(0, 500).forEach(r => {
+        // Status badge
+        let badgeColor = '#94a3b8';
+        if (r.dias <= 90) badgeColor = '#10b981';
+        else if (r.dias <= 365) badgeColor = '#f59e0b';
+        else badgeColor = '#94a3b8';
+        const vendStyle = r.vendedor === '(sin asignar)' || r.vendedor === '-- SIN ASIGNAR --' ? 'color:var(--text-dim); font-style:italic' : '';
+        html += `<tr>
+            <td class="clickable" onclick="showClienteDetail('${escAttr(r.cliente)}', null)">${r.cliente}</td>
+            <td style="${vendStyle}">${r.vendedor}</td>
+            <td>${r.provincia}</td>
+            <td class="num" style="font-weight:600">${fmtNum(r.srArticulos)}</td>
+            <td class="num">${fmtNum(r.units)}</td>
+            <td class="num">${fmtMoney(r.ventas)}</td>
+            <td class="num">${fmtMoney(r.ventasTotales)}</td>
+            <td>${r.ultima}</td>
+            <td class="num" style="color:${badgeColor}; font-weight:600">${fmtNum(r.dias)}</td>
+            <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="showClienteSinRot('${escAttr(r.cliente)}')">Ver para ofrecer →</button></td>
+        </tr>`;
+    });
+    html += `</tbody></table>`;
+    if (rows.length > 500) html += `<div style="padding:8px; color:var(--text-dim); font-size:11px">Mostrando los primeros 500 de ${fmtNum(rows.length)}. Usá el buscador o exportá a CSV para ver el resto.</div>`;
+    document.getElementById('tableSROport').innerHTML = html;
+    STATE.lastSROport = rows;
+}
+
+function showClienteSinRot(cliente) {
+    clearModalStackIfClosed();
+    const cliIdx = LK.clienteName.indexOf(cliente);
+    if (cliIdx < 0) { alert('Cliente no encontrado'); return; }
+    const idx = buildSRIndexes();
+
+    // Expandir cliente: muchos clientes tienen varias variantes de spelling en
+    // los datos. Sin esto, solo tomábamos las transacciones de UNA variante y
+    // podíamos perder fechas/compras recientes de otras variantes del mismo
+    // cliente. Misma lógica que showClienteSubcatArticulos.
+    const cliIds = NAMEIDX_TO_CLIIDS.get(cliIdx);
+    const allNameIdxs = new Set([cliIdx]);
+    if (cliIds && cliIds.size) {
+        cliIds.forEach(id => {
+            const ns = CLIID_TO_NAMEIDXS.get(id);
+            if (ns) ns.forEach(n => allNameIdxs.add(n));
+        });
+    }
+
+    // Verificar si alguna variante tiene compras en aging
+    let foundInAging = false;
+    for (const ni of allNameIdxs) {
+        if (idx.cliMap.get(ni)) { foundInAging = true; break; }
+    }
+    if (!foundInAging) { alert('Cliente sin compras en aging'); return; }
+
+    // Sumar ventas totales y transacciones totales en todas las variantes
+    let totalVentas = 0;
+    allNameIdxs.forEach(ni => { totalVentas += (idx.nameToTotal.get(ni) || 0); });
+    const today = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+
+    // Per codigo: aggregate this cliente's purchases of each SR codigo
+    // Ahora usamos allNameIdxs en lugar de un solo cliIdx → captura todas
+    // las variantes de nombre del mismo cliente.
+    const perCod = new Map();
+    for (let i=0;i<ROWS.length;i++) {
+        const r = ROWS[i];
+        if (!allNameIdxs.has(r[C.cli])) continue;
+        const cIdx = r[C.cod];
+        const codigo = LK.codigo[cIdx];
+        if (!SIN_ROT[codigo]) continue;
+        let pe = perCod.get(cIdx);
+        if (!pe) { pe = { lastDays:-1, q:0, v:0, p:0, count:0 }; perCod.set(cIdx, pe); }
+        if (r[C.days] > pe.lastDays) pe.lastDays = r[C.days];
+        pe.q += ROW_QTY[i]; pe.v += ROW_VEN[i]; pe.p += ROW_PROF[i]; pe.count += 1;
+    }
+    const arts = [...perCod.entries()].map(([cIdx, pe]) => {
+        const codigo = LK.codigo[cIdx];
+        const meta = D.articulosMaster[codigo] || {};
+        const sr = SIN_ROT[codigo] || {};
+        return { codigo, articulo: meta.articulo||'', marca: meta.marca||'', subcat: meta.subcat||'',
+                 sr: sr.sr||0, fis: sr.fis||0,
+                 lastDays: pe.lastDays, ultima: fmtDate(pe.lastDays),
+                 dias: today-pe.lastDays, q: pe.q, v: pe.v, p: pe.p, count: pe.count };
+    });
+    arts.sort((a,b)=>b.lastDays-a.lastDays);
+
+    const totalSR = arts.reduce((a,x)=>a+x.q, 0);
+    const totalV = arts.reduce((a,x)=>a+x.v, 0);
+
+    // Vendedor/provincia/clase: tomar el primero que se encuentre entre las variantes
+    let vendedor = '(sin asignar)', provincia = '', clase = '';
+    for (const ni of allNameIdxs) {
+        if (vendedor === '(sin asignar)' && idx.nameToVendedor.get(ni)) vendedor = idx.nameToVendedor.get(ni);
+        if (!provincia && idx.nameToProvincia.get(ni)) provincia = idx.nameToProvincia.get(ni);
+        if (!clase && idx.nameToClase.get(ni)) clase = idx.nameToClase.get(ni);
+    }
+
+    // Estado para los botones de exportar (Excel/PDF)
+    window._cliSROptCtx = { cliente, vendedor, provincia, clase,
+        totalVentas, totalSR, totalV, totalCompras: arts.reduce((a,x)=>a+x.count,0),
+        arts, hasPrices: true };
+
+    let body = `
+        <div style="background:linear-gradient(90deg, rgba(239,68,68,.15), rgba(245,158,11,.10)); border:1px solid var(--warn); border-radius:10px; padding:14px; margin-bottom:14px">
+            <div style="font-size:13px; font-weight:600; color:var(--warn); margin-bottom:6px">🎯 OPORTUNIDAD DE RE-VENTA</div>
+            <div style="font-size:13px">Este cliente compró históricamente <strong>${arts.length}</strong> productos diferentes que hoy tienen stock en aging. Hablale para ofrecerle el Aging.</div>
+            <div style="font-size:12px; margin-top:8px; padding-top:8px; border-top:1px solid rgba(245,158,11,.3)"><strong>📞 Vendedor asignado:</strong> <span style="color:${vendedor==='(sin asignar)'||vendedor==='-- SIN ASIGNAR --'?'var(--bad)':'var(--accent-2)'}; font-weight:600">${vendedor}</span> · ${provincia} · ${clase}</div>
+        </div>
+        <div class="kpis">
+            <div class="kpi"><div class="label">Cliente</div><div class="value" style="font-size:13px; line-height:1.3">${cliente}</div><div class="sub">${provincia}</div></div>
+            <div class="kpi"><div class="label">Vendedor</div><div class="value" style="font-size:13px">${vendedor}</div><div class="sub">${clase}</div></div>
+            <div class="kpi"><div class="label">Ventas totales</div><div class="value">${fmtMoney(totalVentas)}</div></div>
+            <div class="kpi" style="border-color:var(--warn)"><div class="label" style="color:var(--warn)">Art. en aging que compró</div><div class="value">${fmtNum(arts.length)}</div></div>
+            <div class="kpi"><div class="label">Uds. en aging comprada</div><div class="value">${fmtNum(totalSR)}</div></div>
+            <div class="kpi"><div class="label">Facturado en aging</div><div class="value">${fmtMoney(totalV)}</div></div>
+        </div>
+        <div style="margin:12px 0 4px; display:flex; gap:8px">
+            <button class="btn" onclick="exportClienteSinRotCSV()" style="background:var(--accent)">⬇ Exportar a Excel</button>
+            <button class="btn" onclick="exportClienteSinRotPDF()" style="background:var(--accent-2)">🖨 Exportar a PDF</button>
+        </div>
+        <h3 style="margin:14px 0 8px">🛒 Artículos para ofrecer (ordenados por última compra del cliente)</h3>
+        <div class="table-wrap" style="max-height:520px"><table style="table-layout:fixed; width:100%"><thead><tr>
+            <th style="width:8%">Código</th>
+            <th style="width:30%">Artículo</th>
+            <th style="width:9%">Marca</th>
+            <th style="width:13%">SubCategoría</th>
+            <th class="num" style="width:7%">Stock aging</th>
+            <th style="width:8%">Última compra</th>
+            <th class="num" style="width:6%">Días atrás</th>
+            <th class="num" style="width:9%">Cant. histórica</th>
+            <th class="num" style="width:10%">Veces compró</th>
+        </tr></thead><tbody>`;
+    const _agColors = ['#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#7c2d12'];
+    const _agLabels = ['0-30d','30-60d','60-90d','90-150d','150-365d','+365d'];
+    arts.forEach(a => {
+        let badgeColor = '#94a3b8';
+        if (a.dias <= 180) badgeColor = '#10b981';
+        else if (a.dias <= 730) badgeColor = '#f59e0b';
+        // Aging bucket badge para el código
+        const agInfo = (typeof __AGING__ !== 'undefined') ? __AGING__[a.codigo] : null;
+        const oldIdx = agInfo && typeof agInfo.old === 'number' ? agInfo.old : 5;
+        const agColor = _agColors[oldIdx] || '#7c2d12';
+        const agLabel = _agLabels[oldIdx] || 'AGING';
+        body += `<tr class="sin-rot" data-codigo="${escAttr(a.codigo)}">
+            <td class="clickable" onclick="showArticuloDetail('${escAttr(a.codigo)}')">${a.codigo} <span class="sr-badge" style="background:${agColor}">${agLabel}</span></td>
+            <td title="${escAttr(a.articulo)}" style="white-space:normal; word-wrap:break-word; overflow-wrap:anywhere; line-height:1.3">${a.articulo}</td>
+            <td>${a.marca}</td>
+            <td>${a.subcat}</td>
+            <td class="num" style="color:${agColor}; font-weight:600">${fmtNum(a.sr)}</td>
+            <td>${a.ultima}</td>
+            <td class="num" style="color:${badgeColor}; font-weight:600">${fmtNum(a.dias)}</td>
+            <td class="num">${fmtNum(a.q)}</td>
+            <td class="num">${fmtNum(a.count)}</td>
+        </tr>`;
+    });
+    body += '</tbody></table></div>';
+    pushModal({ crumb:'🎯 '+cliente, title:'🎯 Oportunidades para '+cliente, body });
+}
+
+// ====== Export del modal de Oportunidades para Cliente ======
+// Lee window._cliSROptCtx (lo setea showClienteSinRot al abrir el modal).
+// Vendedores override pone hasPrices=false → no incluye columnas/KPIs de plata.
+function _safeFilename(s) {
+    return (s || 'cliente').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
+}
+function _csvEscape(v) {
+    const s = (v == null) ? '' : String(v);
+    if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0 || s.indexOf(';') >= 0) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+function exportClienteSinRotCSV() {
+    const ctx = window._cliSROptCtx;
+    if (!ctx) { alert('No hay datos para exportar'); return; }
+    const rows = [];
+    rows.push(['Cliente', ctx.cliente]);
+    rows.push([ctx.hasPrices ? 'Vendedor asignado' : 'Vendedor reciente', ctx.vendedor]);
+    rows.push(['Provincia', ctx.provincia]);
+    rows.push(['Clase', ctx.clase]);
+    if (ctx.hasPrices) rows.push(['Ventas totales', Math.round(ctx.totalVentas || 0)]);
+    rows.push(['Artículos en aging que compró', ctx.arts.length]);
+    rows.push(['Unidades en aging compradas', Math.round(ctx.totalSR || 0)]);
+    if (ctx.hasPrices) rows.push(['Facturado en aging', Math.round(ctx.totalV || 0)]);
+    rows.push(['Generado', new Date().toLocaleString('es-AR')]);
+    rows.push([]);
+    // Header
+    const headers = ['Código', 'Artículo', 'Marca', 'SubCategoría', 'Stock aging',
+                     'Última compra', 'Días atrás', 'Cantidad histórica', 'Veces compró'];
+    if (ctx.hasPrices) headers.push('Ventas históricas');
+    rows.push(headers);
+    // Data — respeta el orden actual del DOM (si el usuario re-ordenó por columna)
+    _orderArtsByCurrentDOM(ctx.arts).forEach(a => {
+        const row = [a.codigo, a.articulo, a.marca, a.subcat, a.sr, a.ultima, a.dias, a.q, a.count];
+        if (ctx.hasPrices) row.push(Math.round(a.v || 0));
+        rows.push(row);
+    });
+    // BOM + CSV con separador ; (Excel ES interpreta mejor)
+    const csv = '\ufeff' + rows.map(r => r.map(_csvEscape).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    link.href = url;
+    link.download = `Oportunidades_${_safeFilename(ctx.cliente)}_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportClienteSinRotPDF() {
+    const ctx = window._cliSROptCtx;
+    if (!ctx) { alert('No hay datos para exportar'); return; }
+    const win = window.open('', '_blank', 'width=1200,height=800');
+    if (!win) { alert('Popup bloqueado. Habilita popups para este sitio.'); return; }
+    const today = new Date().toLocaleString('es-AR');
+    const safeName = (s) => String(s || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Oportunidades — ${safeName(ctx.cliente)}</title><style>
+        @page { size: A4 landscape; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; padding: 16px; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        h2 { font-size: 12px; margin: 14px 0 6px; }
+        .banner { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 12px; margin-bottom: 12px; font-size: 11px; }
+        .kpis { display: grid; grid-template-columns: repeat(${ctx.hasPrices ? 6 : 5}, 1fr); gap: 6px; margin-bottom: 12px; }
+        .kpi { border: 1px solid #ccc; padding: 6px 8px; }
+        .kpi-label { font-size: 8px; color: #555; text-transform: uppercase; letter-spacing: .5px; }
+        .kpi-value { font-size: 11px; font-weight: bold; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+        th { background: #1e293b; color: #fff; padding: 5px 6px; text-align: left; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; word-wrap: break-word; }
+        .num { text-align: right; }
+        .footer { margin-top: 16px; font-size: 8px; color: #888; text-align: right; }
+        @media print { body { padding: 0; } .no-print { display: none; } }
+    </style></head><body>
+        <h1>🎯 Oportunidades para ${safeName(ctx.cliente)}</h1>
+        <div class="banner"><strong>OPORTUNIDAD DE RE-VENTA:</strong> Este cliente compró históricamente <strong>${ctx.arts.length}</strong> productos diferentes que hoy tienen stock en aging. Hablale para ofrecerle el Aging.<br>
+        <strong>${ctx.hasPrices ? '📞 Vendedor asignado' : '📞 Vendedor reciente (últimos 3 meses)'}:</strong> ${safeName(ctx.vendedor || '-')} · ${safeName(ctx.provincia)} · ${safeName(ctx.clase)}</div>
+        <div class="kpis">
+            <div class="kpi"><div class="kpi-label">Cliente</div><div class="kpi-value">${safeName(ctx.cliente)}</div></div>
+            <div class="kpi"><div class="kpi-label">${ctx.hasPrices ? 'Vendedor' : 'Vendedor reciente'}</div><div class="kpi-value">${safeName(ctx.vendedor || '-')}</div></div>
+            ${ctx.hasPrices ? `<div class="kpi"><div class="kpi-label">Ventas totales</div><div class="kpi-value">${fmtMoney(ctx.totalVentas)}</div></div>` : ''}
+            <div class="kpi"><div class="kpi-label">Art. en aging que compró</div><div class="kpi-value">${fmtNum(ctx.arts.length)}</div></div>
+            <div class="kpi"><div class="kpi-label">Uds. en aging compradas</div><div class="kpi-value">${fmtNum(ctx.totalSR)}</div></div>
+            ${ctx.hasPrices ? `<div class="kpi"><div class="kpi-label">Facturado en aging</div><div class="kpi-value">${fmtMoney(ctx.totalV)}</div></div>` : `<div class="kpi"><div class="kpi-label">Compras en aging</div><div class="kpi-value">${fmtNum(ctx.totalCompras)}</div></div>`}
+        </div>
+        <h2>🛒 Artículos para ofrecer (ordenados por última compra del cliente)</h2>
+        <table><thead><tr>
+            <th style="width:7%">Código</th>
+            <th style="width:32%">Artículo</th>
+            <th style="width:10%">Marca</th>
+            <th style="width:13%">SubCategoría</th>
+            <th class="num" style="width:7%">Stock aging</th>
+            <th style="width:9%">Última compra</th>
+            <th class="num" style="width:6%">Días atrás</th>
+            <th class="num" style="width:8%">Cant. hist.</th>
+            <th class="num" style="width:8%">Veces compró</th>
+        </tr></thead><tbody>`;
+    _orderArtsByCurrentDOM(ctx.arts).forEach(a => {
+        html += `<tr>
+            <td>${safeName(a.codigo)}</td>
+            <td>${safeName(a.articulo)}</td>
+            <td>${safeName(a.marca)}</td>
+            <td>${safeName(a.subcat)}</td>
+            <td class="num">${fmtNum(a.sr)}</td>
+            <td>${safeName(a.ultima)}</td>
+            <td class="num">${fmtNum(a.dias)}</td>
+            <td class="num">${fmtNum(a.q)}</td>
+            <td class="num">${fmtNum(a.count)}</td>
+        </tr>`;
+    });
+    html += `</tbody></table>
+        <div class="footer">Generado el ${today} · Dashboard Ventas Núcleo</div>
+        <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };<\/script>
+    </body></html>`;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+}
+
+function renderSRSubcat() {
+    const q = (document.getElementById('searchSRSub')?.value||'').toLowerCase().trim();
+    const idx = buildSRIndexes();
+    const ctx = _agingFilterContext();
+    let subArr, marcaArr;
+    if (ctx.fCatName || ctx.fMarcaSet || ctx.codesInScope) {
+        const subMap = new Map(), marcaMap = new Map();
+        Object.entries(__AGING__||{}).forEach(([codigo, e]) => {
+            if (!agingPasses(codigo, ctx)) return;
+            const meta = D.articulosMaster[codigo] || {};
+            const sub = meta.subcat || '(sin dato)';
+            let s = subMap.get(sub); if (!s) { s = { codigos:0, units:0, fis:0 }; subMap.set(sub, s); }
+            s.codigos += 1; s.units += e.ag; s.fis += e.fis;
+            const marca = meta.marca || '(sin dato)';
+            let mk = marcaMap.get(marca); if (!mk) { mk = { codigos:0, units:0, fis:0 }; marcaMap.set(marca, mk); }
+            mk.codigos += 1; mk.units += e.ag; mk.fis += e.fis;
+        });
+        subArr = [...subMap.entries()].map(([k,e])=>({nombre:k, codigos:e.codigos, units:e.units, fis:e.fis})).sort((a,b)=>b.units-a.units);
+        marcaArr = [...marcaMap.entries()].map(([k,e])=>({nombre:k, codigos:e.codigos, units:e.units, fis:e.fis})).sort((a,b)=>b.units-a.units);
+    } else {
+        subArr = [...idx.subcatMap.entries()].map(([k,e])=>({nombre:k, codigos:e.codigos, units:e.units, fis:e.fis})).sort((a,b)=>b.units-a.units);
+        marcaArr = [...idx.marcaMap.entries()].map(([k,e])=>({nombre:k, codigos:e.codigos, units:e.units, fis:e.fis})).sort((a,b)=>b.units-a.units);
+    }
+    // Charts
+    const topSub = subArr.slice(0,15);
+    makeBarChart('chartSRSub', topSub.map(x=>x.nombre), topSub.map(x=>x.units), '#ef4444', true);
+    const topMarca = marcaArr.slice(0,15);
+    makeBarChart('chartSRMarca', topMarca.map(x=>x.nombre), topMarca.map(x=>x.units), '#f59e0b', true);
+
+    let combined = subArr.map(x => ({tipo:'SubCat', ...x})).concat(marcaArr.map(x => ({tipo:'Marca', ...x})));
+    if (q) combined = combined.filter(r => r.nombre.toLowerCase().includes(q));
+    combined.sort((a,b)=>b.units-a.units);
+    let html = '<table><thead><tr><th>Tipo</th><th>Nombre</th><th class="num">Códigos en aging</th><th class="num">Unidades en aging</th><th class="num">Stock físico</th><th class="num">% en aging</th></tr></thead><tbody>';
+    combined.forEach(r => {
+        const pct = r.fis ? (r.units/r.fis*100) : 0;
+        html += `<tr><td>${r.tipo}</td><td>${r.nombre}</td><td class="num">${fmtNum(r.codigos)}</td><td class="num" style="color:var(--bad); font-weight:600">${fmtNum(Math.round(r.units))}</td><td class="num">${fmtNum(Math.round(r.fis))}</td><td class="num">${pct.toFixed(1)}%</td></tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('tableSRSub').innerHTML = html;
+    STATE.lastSRSubcat = combined;
+}
+
+function renderSinRot() {
+    renderSinRotKPIs();
+    const view = STATE.srView || 'pms';
+    document.querySelectorAll('#section-sinrot .sr-view').forEach(d => d.classList.add('hidden'));
+    if (view === 'pms') { document.getElementById('srViewPms').classList.remove('hidden'); renderSRPMs(); }
+    else if (view === 'oport') { document.getElementById('srViewOport').classList.remove('hidden'); renderSROport(); }
+    else if (view === 'subcat') { document.getElementById('srViewSubcat').classList.remove('hidden'); renderSRSubcat(); }
+    else if (view === 'bucket') { document.getElementById('srViewBucket').classList.remove('hidden'); renderSRBucket(); }
+    document.querySelectorAll('#section-sinrot .tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.srview===view));
+}
+
+function renderSRBucket() {
+    if (typeof __AGING__ === 'undefined') {
+        document.getElementById('tableBucket').innerHTML = '<div class="empty-state">Datos de aging no disponibles.</div>';
+        return;
+    }
+    const labels = ['0-30 días','30-60 días','60-90 días','90-150 días','150-365 días','+365 días'];
+    const colors = ['#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#7c2d12'];
+    // Filtros aplicables al stock (incluye los transaccionales vía codesInScope)
+    const ctx = _agingFilterContext();
+    function passesStockFilter(codigo) { return agingPasses(codigo, ctx); }
+    // Compute totals per bucket (filtrando por cat/marca si aplica)
+    const totals = [0,0,0,0,0,0];
+    const ars = [0,0,0,0,0,0];
+    const usd = [0,0,0,0,0,0];
+    const codigosCount = [0,0,0,0,0,0];
+    Object.entries(__AGING__).forEach(([codigo, e]) => {
+        if (!passesStockFilter(codigo)) return;
+        for (let i=0;i<6;i++) {
+            if (e.b[i] > 0) {
+                totals[i] += e.b[i];
+                ars[i] += e.ba[i];
+                usd[i] += e.bu[i];
+                codigosCount[i] += 1;
+            }
+        }
+    });
+    const totalArs = ars.reduce((a,b)=>a+b,0);
+    const totalUsd = usd.reduce((a,b)=>a+b,0);
+    const totalU = totals.reduce((a,b)=>a+b,0);
+    const totalCodes = Object.keys(__AGING__).filter(c=>passesStockFilter(c)).length;
+
+    // KPIs
+    let kpiHtml = '';
+    for (let i=0;i<6;i++) {
+        const pctU = totalU ? (totals[i]*100/totalU) : 0;
+        kpiHtml += `<div class="kpi" style="border-color:${colors[i]}"><div class="label" style="color:${colors[i]}">${labels[i]}</div><div class="value">${fmtNum(totals[i])}</div><div class="sub">${codigosCount[i]} cod · ${fmtMoney(ars[i])} · USD ${fmtNum(usd[i])} · ${pctU.toFixed(1)}%</div></div>`;
+    }
+    kpiHtml += `<div class="kpi" style="border-color:var(--bad)"><div class="label" style="color:var(--bad)">TOTAL aging</div><div class="value">${fmtNum(totalU)}</div><div class="sub">${totalCodes} códigos · ${fmtMoney(totalArs)} · USD ${fmtNum(totalUsd)}</div></div>`;
+    document.getElementById('bucketKPIs').innerHTML = kpiHtml;
+
+    // Table: per code, per bucket
+    const q = (document.getElementById('searchBucket')?.value||'').toLowerCase().trim();
+    const bucketFilter = parseInt(document.getElementById('bucketFilter')?.value || '-1');
+    const rows = [];
+    Object.entries(__AGING__).forEach(([codigo, e]) => {
+        if (!passesStockFilter(codigo)) return;
+        const meta = D.articulosMaster[codigo] || {};
+        const hay = (codigo+' '+(meta.articulo||'')+' '+(meta.marca||'')+' '+(meta.subcat||'')).toLowerCase();
+        if (q && !hay.includes(q)) return;
+        if (bucketFilter >= 0 && (!e.b[bucketFilter] || e.b[bucketFilter] <= 0)) return;
+        rows.push({
+            codigo, articulo: meta.articulo||'(sin nombre)', marca: meta.marca||'',
+            subcat: meta.subcat||'', cat: meta.cat||'',
+            ag: e.ag, fis: e.fis, ars: e.ars, usd: e.usd, b: e.b, ba: e.ba, bu: e.bu, old: e.old,
+            pm: (e.pm||[]).join(', ')
+        });
+    });
+    // Sort by oldest bucket first (descending), then by ARS cost
+    rows.sort((a,b)=>{
+        if (b.old !== a.old) return b.old - a.old;
+        return b.ars - a.ars;
+    });
+    const top = rows.slice(0, 500);
+
+    let html = `<table><thead><tr>
+        <th>Código</th><th>Artículo</th><th>Marca</th><th>SubCategoría</th>
+        <th class="num">Total aging</th>
+        <th class="num">0-30</th><th class="num">30-60</th><th class="num">60-90</th><th class="num">90-150</th><th class="num">150-365</th><th class="num">+365</th>
+        <th class="num">Costo ARS</th><th class="num">USD</th><th>PM</th>
+    </tr></thead><tbody>`;
+    top.forEach(r => {
+        html += `<tr>
+            <td class="clickable" onclick="showArticuloDetail('${escAttr(r.codigo)}')">${r.codigo} <span class="sr-badge" style="background:${colors[r.old]}">${labels[r.old].replace(' días','')}</span></td>
+            <td class="truncate" title="${escAttr(r.articulo)}">${r.articulo}</td>
+            <td>${r.marca}</td>
+            <td>${r.subcat}</td>
+            <td class="num" style="font-weight:600; color:${colors[r.old]}">${fmtNum(r.ag)}</td>`;
+        for (let i=0;i<6;i++) {
+            const v = r.b[i];
+            html += `<td class="num" style="${v>0?'color:'+colors[i]:'color:#444'}">${v>0?fmtNum(v):'-'}</td>`;
+        }
+        html += `<td class="num">${fmtMoney(r.ars)}</td><td class="num">${fmtNum(r.usd)}</td><td>${r.pm}</td>
+        </tr>`;
+    });
+    html += `<tr style="background:var(--bg-3); font-weight:bold"><td colspan="4">TOTAL ${rows.length} códigos</td><td class="num">${fmtNum(rows.reduce((a,r)=>a+r.ag,0))}</td><td colspan="6"></td><td class="num">${fmtMoney(rows.reduce((a,r)=>a+r.ars,0))}</td><td class="num">${fmtNum(rows.reduce((a,r)=>a+r.usd,0))}</td><td></td></tr>`;
+    html += '</tbody></table>';
+    if (rows.length > 500) html += `<div style="padding:8px; color:var(--text-dim); font-size:11px">Mostrando los primeros 500 de ${fmtNum(rows.length)}. Usá la búsqueda para acotar o exportá CSV.</div>`;
+    document.getElementById('tableBucket').innerHTML = html;
+    STATE.lastSRBucket = rows;
+}
+
+function _sinRotExportData(view) {
+    let data, keys, title;
+    if (view==='pms') {
+        data = (STATE.lastSRPms||[]).map(r => ({pm:r.pm, codigos:Math.round(r.codigos), unidades_muertas:Math.round(r.units), stock_fisico:Math.round(r.fis), pct_muerto:r.share.toFixed(1)+'%'}));
+        keys = ['pm','codigos','unidades_muertas','stock_fisico','pct_muerto'];
+        title = 'Aging — Ranking de PMs';
+    } else if (view==='oport') {
+        data = (STATE.lastSROport||[]).map(r => ({cliente:r.cliente, vendedor:r.vendedor, provincia:r.provincia, articulos_SR_comprados:r.srArticulos, cantidad_historica:r.units, ventas_de_SR:Math.round(r.ventas), ventas_totales:Math.round(r.ventasTotales), ultima_compra_SR:r.ultima, dias_atras:r.dias}));
+        keys = Object.keys(data[0]||{});
+        title = 'Aging — Clientes Oportunidad';
+    } else if (view==='subcat') {
+        data = (STATE.lastSRSubcat||[]).map(r => ({tipo:r.tipo, nombre:r.nombre, codigos:r.codigos, unidades_aging:Math.round(r.units), stock_fisico:Math.round(r.fis)}));
+        keys = ['tipo','nombre','codigos','unidades_aging','stock_fisico'];
+        title = 'Aging — Por SubCategoría / Marca';
+    } else if (view==='bucket') {
+        const buckets = ['0-30','30-60','60-90','90-150','150-365','+365'];
+        data = (STATE.lastSRBucket||[]).map(r => ({
+            codigo:r.codigo, articulo:r.articulo, marca:r.marca, subcat:r.subcat,
+            total_aging:r.ag, fisico:r.fis, costo_ars:r.ars, costo_usd:r.usd,
+            bucket_mas_viejo: r.old>=0 ? buckets[r.old] : '-',
+            uds_0a30:r.b[0]||0, uds_30a60:r.b[1]||0, uds_60a90:r.b[2]||0,
+            uds_90a150:r.b[3]||0, uds_150a365:r.b[4]||0, uds_mas365:r.b[5]||0,
+            pm:r.pm
+        }));
+        keys = Object.keys(data[0]||{});
+        title = 'Aging — Por Bucket';
+    }
+    return { data: data || [], keys: keys || [], title: title || 'Aging' };
+}
+function exportSinRotExcel(view) {
+    const { data, keys } = _sinRotExportData(view);
+    if (!data.length) { alert('No hay datos para exportar'); return; }
+    _downloadCSV([keys, ...data.map(r => keys.map(k => r[k]))], 'aging_'+view);
+}
+function exportSinRotPDF(view) {
+    const { data, keys, title } = _sinRotExportData(view);
+    if (!data.length) { alert('No hay datos para exportar'); return; }
+    _printAsPDF(title, keys, data.map(r => keys.map(k => r[k])));
+}
+
+// ====== Funciones genéricas reutilizables (CSV/PDF) ======
+function _downloadCSV(rows, filenamePrefix) {
+    const csv = '\uFEFF' + rows.map(r => r.map(_csvEscape).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    link.href = url;
+    link.download = `${filenamePrefix}_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function _printAsPDF(title, headers, rows) {
+    const win = window.open('', '_blank', 'width=1200,height=800');
+    if (!win) { alert('Popup bloqueado. Habilita popups para este sitio.'); return; }
+    const today = new Date().toLocaleString('es-AR');
+    const safeName = (s) => String(s == null ? '' : s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    const colW = (100 / headers.length).toFixed(2) + '%';
+    let html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${safeName(title)}</title><style>
+        @page { size: A4 landscape; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; padding: 14px; }
+        h1 { font-size: 15px; margin: 0 0 4px; }
+        .meta { font-size: 9px; color: #666; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; table-layout: fixed; }
+        th { background: #1e293b; color: #fff; padding: 4px 5px; text-align: left; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; vertical-align: top; word-wrap: break-word; }
+        .footer { margin-top: 12px; font-size: 8px; color: #888; text-align: right; }
+        @media print { body { padding: 0; } }
+    </style></head><body>
+        <h1>${safeName(title)}</h1>
+        <div class="meta">Total: <strong>${rows.length}</strong> filas · Generado el ${today}</div>
+        <table><thead><tr>`;
+    headers.forEach(h => { html += `<th style="width:${colW}">${safeName(h)}</th>`; });
+    html += `</tr></thead><tbody>`;
+    rows.forEach(r => {
+        html += '<tr>';
+        r.forEach(v => { html += `<td>${safeName(v)}</td>`; });
+        html += '</tr>';
+    });
+    html += `</tbody></table>
+        <div class="footer">Dashboard Ventas Núcleo</div>
+        <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };<\/script>
+    </body></html>`;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+}
+
+// ====== Export para tabs (clientes / articulos / dim genéricas) ======
+function _tabExportData(tab) {
+    let data, keys, title;
+    if (tab === 'clientes') {
+        data = STATE.lastClientes || [];
+        keys = ['id','nombre','ventas','profit','cantidad','ultima','dias','trans','provincia','clase','vendedor'];
+        title = 'Clientes';
+    } else if (tab === 'articulos') {
+        data = STATE.lastArticulos || [];
+        keys = data.length ? Object.keys(data[0]) : [];
+        title = 'Artículos';
+    } else {
+        const rows = (STATE.lastDim||{})[tab] || [];
+        keys = ['nombre','ventas','profit','cantidad','trans'];
+        data = rows.map(r => ({nombre:r[0], ventas:r[1], profit:r[2], cantidad:r[3], trans:r[4]}));
+        title = tab.charAt(0).toUpperCase() + tab.slice(1);
+    }
+    return { data, keys, title };
+}
+function exportTabExcel(tab) {
+    if (tab === 'clientes') return exportClientesExcel();
+    const { data, keys } = _tabExportData(tab);
+    if (!data.length) { alert('No hay datos para exportar'); return; }
+    _downloadCSV([keys, ...data.map(r => keys.map(k => r[k]))], tab);
+}
+function exportTabPDF(tab) {
+    if (tab === 'clientes') return exportClientesPDF();
+    const { data, keys, title } = _tabExportData(tab);
+    if (!data.length) { alert('No hay datos para exportar'); return; }
+    _printAsPDF(title, keys, data.map(r => keys.map(k => r[k])));
+}
+
+// ==== Top-clientes-with-many-SR alert ====================================
+function checkTopClientesAlert() {
+    // Find top 100 clientes (by total ventas) who bought 5+ different SR articles
+    const idx = buildSRIndexes();
+    const ranked = [...idx.nameToTotal.entries()].sort((a,b)=>b[1]-a[1]).slice(0,100);
+    const topSet = new Set(ranked.map(([n])=>n));
+    const alerts = [];
+    idx.cliMap.forEach((e, nIdx) => {
+        if (!topSet.has(nIdx)) return;
+        if (e.codigos.size >= 5) {
+            alerts.push({ name: LK.clienteName[nIdx], srCount: e.codigos.size, ventas: idx.nameToTotal.get(nIdx) });
+        }
+    });
+    alerts.sort((a,b)=>b.srCount-a.srCount);
+    return alerts;
+}
+
+function renderAlertBanner() {
+    const alerts = checkTopClientesAlert();
+    let banner = document.getElementById('topAlertBanner');
+    if (!alerts.length) { if (banner) banner.remove(); return; }
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'topAlertBanner';
+        banner.style.cssText = 'background:linear-gradient(90deg, rgba(239,68,68,.18), rgba(245,158,11,.12)); border:1px solid var(--warn); border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:12px; font-size:12px; cursor:pointer';
+        banner.onclick = () => { showTab('sinrot'); STATE.srView='oport'; renderSinRot(); };
+        const container = document.querySelector('.container');
+        const filterBar = container.querySelector('.filters-bar');
+        container.insertBefore(banner, filterBar);
+    }
+    const top3 = alerts.slice(0,3).map(a => `<strong>${a.name}</strong> (${a.srCount} art.)`).join(', ');
+    banner.innerHTML = `<div style="font-size:18px">🚨</div><div><div style="font-weight:600; color:var(--warn)">${alerts.length} clientes top compraron 5+ artículos en aging históricamente</div><div style="color:var(--text-dim); margin-top:2px">Más urgente: ${top3} · <span style="color:var(--accent-2); text-decoration:underline">Ver todos →</span></div></div>`;
+}
+
+// ==== Tabs / nav =========================================================
+function renderTab(t) {
+    if (t==='resumen') renderResumenCharts();
+    else if (t==='clientes') renderClientes();
+    else if (t==='subcategorias') renderDimTab('subcategorias', C.sub, LK.subcat, 'searchSubcat', 'tableSubcat', 'SubCategoría', true);
+    else if (t==='categorias') renderDimTab('categorias', C.cat, LK.cat, 'searchCat', 'tableCat', 'Categoría', false);
+    else if (t==='marcas') renderDimTab('marcas', C.marca, LK.marca, 'searchMarca', 'tableMarca', 'Marca', false);
+    else if (t==='plataformas') renderDimTab('plataformas', C.plat, LK.plat, 'searchPlat', 'tablePlat', 'Plataforma', false);
+    else if (t==='vendedores') renderDimTab('vendedores', C.vend, LK.vend, 'searchVend', 'tableVend', 'Vendedor', false);
+    else if (t==='provincias') renderDimTab('provincias', C.prov, LK.prov, 'searchProv', 'tableProv', 'Provincia', false);
+    else if (t==='sucursales') renderDimTab('sucursales', C.suc, LK.suc, 'searchSuc', 'tableSuc', 'Sucursal', false);
+    else if (t==='articulos') renderArticulos();
+    else if (t==='evolucion') renderEvolucionCharts();
+    else if (t==='cruce') renderCruce();
+    else if (t==='sinrot') renderSinRot();
+}
+function showTab(t) {
+    // Only toggle the MAIN tabs (those inside #tabs), not the sub-tabs inside sections
+    document.querySelectorAll('#tabs > .tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+    document.querySelectorAll('.section').forEach(s=>s.classList.toggle('hidden', s.id !== 'section-'+t));
+    renderTab(t);
+}
+function activeTab() { return document.querySelector('.tab.active').dataset.tab; }
+
+// ==== Filters ============================================================
+// ==== Multi-select component =============================================
+// Crea un dropdown con checkboxes para un filtro de array de valores.
+function buildMultiSelect(containerId, options, allLabel, stateKey) {
+    // options: array of {value, label}
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'ms-btn';
+    btn.textContent = allLabel;
+    container.appendChild(btn);
+    const drop = document.createElement('div');
+    drop.className = 'ms-dropdown';
+    container.appendChild(drop);
+    // "Todos" option
+    const allOpt = document.createElement('div');
+    allOpt.className = 'ms-opt all';
+    allOpt.innerHTML = '<input type="checkbox" data-all checked> <span>Todos</span>';
+    drop.appendChild(allOpt);
+    options.forEach(o => {
+        const opt = document.createElement('div');
+        opt.className = 'ms-opt';
+        opt.innerHTML = `<input type="checkbox" value="${o.value}"><span>${o.label}</span>`;
+        drop.appendChild(opt);
+    });
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.multi-select.open').forEach(el => { if (el!==container) el.classList.remove('open'); });
+        container.classList.toggle('open');
+    });
+    drop.addEventListener('click', (e) => e.stopPropagation());
+    const allCheck = allOpt.querySelector('input');
+    const itemChecks = drop.querySelectorAll('input[type=checkbox]:not([data-all])');
+    function updateLabel() {
+        const checked = [...itemChecks].filter(c => c.checked);
+        if (checked.length === 0 || checked.length === itemChecks.length) {
+            btn.textContent = allLabel;
+            btn.classList.remove('active');
+            allCheck.checked = true;
+            STATE.filters[stateKey] = [];
+        } else {
+            const labels = checked.map(c => {
+                const parentSpan = c.parentElement.querySelector('span');
+                return parentSpan ? parentSpan.textContent : c.value;
+            });
+            const short = labels.length <= 2 ? labels.join(', ') : `${checked.length} <span class="ms-count">${checked.length}</span>`;
+            btn.innerHTML = short;
+            btn.classList.add('active');
+            allCheck.checked = false;
+            // Determine value type: year/month are ints, plat is int
+            STATE.filters[stateKey] = checked.map(c => {
+                const v = c.value;
+                const n = parseInt(v);
+                return isNaN(n) ? v : n;
+            });
+        }
+        onFilterChange();
+    }
+    allCheck.addEventListener('change', () => {
+        itemChecks.forEach(c => c.checked = false);
+        allCheck.checked = true;
+        updateLabel();
+    });
+    itemChecks.forEach(c => c.addEventListener('change', updateLabel));
+    container._reset = () => {
+        itemChecks.forEach(c => c.checked = false);
+        allCheck.checked = true;
+        btn.textContent = allLabel;
+        btn.classList.remove('active');
+    };
+}
+// Cerrar dropdowns al clickear fuera
+document.addEventListener('click', () => {
+    document.querySelectorAll('.multi-select.open').forEach(el => el.classList.remove('open'));
+});
+
+function populateFilters() {
+    // Año: multi-select
+    const years = [...new Set(LK.ym.map(ym => parseInt(ym.slice(0,4))))].filter(y=>y).sort();
+    buildMultiSelect('filterYear', years.map(y => ({value: y, label: String(y)})), 'Todos', 'years');
+    // Mes: multi-select
+    const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const monthOpts = [];
+    for (let m=1;m<=12;m++) monthOpts.push({value: m, label: mNames[m-1]});
+    buildMultiSelect('filterMonth', monthOpts, 'Todos', 'months');
+    // Plataforma: multi-select
+    const platOpts = LK.plat.map((v,i) => ({i, v:v||'(sin dato)'})).filter(x=>x.v)
+        .sort((a,b)=>a.v.localeCompare(b.v))
+        .map(p => ({value: p.i, label: p.v}));
+    buildMultiSelect('filterPlat', platOpts, 'Todas', 'plats');
+    // Clase: multi-select
+    const claseOpts = LK.clase.map((v,i) => ({i, v:v||'(sin dato)'})).filter(x=>x.v)
+        .sort((a,b)=>a.v.localeCompare(b.v))
+        .map(p => ({value: p.i, label: p.v}));
+    buildMultiSelect('filterClase', claseOpts, 'Todas', 'clases');
+    // Vendedor: multi-select
+    const vendOpts = LK.vend.map((v,i) => ({i, v:v||'(sin dato)'})).filter(x=>x.v)
+        .sort((a,b)=>a.v.localeCompare(b.v))
+        .map(p => ({value: p.i, label: p.v}));
+    buildMultiSelect('filterVend', vendOpts, 'Todos', 'vends');
+    // Marca: multi-select
+    const marcaOpts = LK.marca.map((v,i) => ({i, v:v||'(sin dato)'})).filter(x=>x.v)
+        .sort((a,b)=>a.v.localeCompare(b.v))
+        .map(p => ({value: p.i, label: p.v}));
+    buildMultiSelect('filterMarca', marcaOpts, 'Todas', 'marcas');
+    // Single-select (Provincia, Categoría)
+    function addOptions(selId, lookupArr) {
+        const el = document.getElementById(selId);
+        const pairs = lookupArr.map((v,i)=>({i, v:v||'(sin dato)'})).filter(x=>x.v);
+        pairs.sort((a,b)=>a.v.localeCompare(b.v));
+        pairs.forEach(p => el.innerHTML += `<option value="${p.i}">${p.v}</option>`);
+    }
+    addOptions('filterProv', LK.prov);
+    addOptions('filterCat', LK.cat);
+}
+function resetFilters() {
+    ['filterYear','filterMonth','filterPlat','filterClase','filterVend','filterMarca'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el._reset) el._reset();
+    });
+    ['filterProv','filterCat'].forEach(id => document.getElementById(id).value='');
+    STATE.filters = { years:[], months:[], plats:[], clases:[], vends:[], marcas:[], prov:-1, cat:-1 };
+    STATE.page.clientes = 0; STATE.page.articulos = 0;
+    buildActiveRows();
+    renderKPIs(); renderTab(activeTab());
+    document.getElementById('filterInfo').textContent = '';
+}
+function onFilterChange() {
+    // Multi-selects update STATE.filters directly via their change handlers
+    // Here we just sync the single-selects
+    const pr = document.getElementById('filterProv').value;
+    STATE.filters.prov = pr==='' ? -1 : parseInt(pr);
+    const c = document.getElementById('filterCat').value;
+    STATE.filters.cat = c==='' ? -1 : parseInt(c);
+    STATE.page.clientes = 0; STATE.page.articulos = 0;
+    buildActiveRows();
+    renderKPIs(); renderTab(activeTab());
+    const f = STATE.filters;
+    const parts = [];
+    if (f.years.length) parts.push('Año: '+f.years.join(', '));
+    if (f.months.length) parts.push('Mes: '+f.months.map(m=>String(m).padStart(2,'0')).join(', '));
+    if (f.plats.length) parts.push('Plat: '+f.plats.map(i=>LK.plat[i]).join(', '));
+    if (f.prov>=0) parts.push('Prov: '+LK.prov[f.prov]);
+    if (f.cat>=0) parts.push('Cat: '+LK.cat[f.cat]);
+    if (f.marcas && f.marcas.length) parts.push('Marca: '+f.marcas.map(i=>LK.marca[i]).join(', '));
+    if (f.clases.length) parts.push('Clase: '+f.clases.map(i=>LK.clase[i]).join(', '));
+    if (f.vends && f.vends.length) parts.push('Vendedor: '+f.vends.map(i=>LK.vend[i]).join(', '));
+    document.getElementById('filterInfo').textContent = parts.length ? '🎯 Filtros activos: ' + parts.join(' · ') + ' · ' + fmtNum(STATE.activeRows.length) + ' trans.' : '';
+}
+
+// ==== CSV export =========================================================
+// (exportTable() removed; replaced by exportTabExcel()/exportTabPDF())
+
+// ==== INIT ===============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('loaderMsg').textContent = 'Indexando ' + fmtNum(N) + ' transacciones…';
+    setTimeout(() => {
+        buildActiveRows();
+        document.getElementById('subtitle').textContent =
+            `${fmtNum(D.meta.total_rows)} transacciones · ${D.meta.min_date} → ${D.meta.max_date} · ${fmtNum(aggregateCli().size)} clientes · ${aggregate(C.sub).size} subcategorías · ${aggregateArt().size} artículos`;
+        if (D.meta.update_date) {
+            const badge = document.getElementById('updateBadge');
+            if (badge) {
+                const d = D.meta.update_date;  // YYYY-MM-DD
+                const parts = d.split('-');
+                badge.textContent = '✓ Actualizado ' + parts[2] + '/' + parts[1] + '/' + parts[0];
+                badge.title = 'Última actualización de datos: ' + d;
+            }
+        }
+        populateFilters();
+        renderKPIs();
+        renderResumenCharts();
+        // Only attach main tab handler to the MAIN tabs container
+        document.querySelectorAll('#tabs > .tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+        let st; const debounce = (fn, ms=200) => { clearTimeout(st); st = setTimeout(fn, ms); };
+        document.getElementById('searchClientes').addEventListener('input', () => { STATE.page.clientes=0; debounce(renderClientes); });
+        document.getElementById('cliMin').addEventListener('change', () => { STATE.page.clientes=0; renderClientes(); });
+        document.getElementById('searchSubcat').addEventListener('input', () => debounce(()=>renderTab('subcategorias')));
+        document.getElementById('searchCat').addEventListener('input', () => debounce(()=>renderTab('categorias')));
+        document.getElementById('searchMarca').addEventListener('input', () => debounce(()=>renderTab('marcas')));
+        document.getElementById('searchPlat').addEventListener('input', () => debounce(()=>renderTab('plataformas')));
+        document.getElementById('searchVend').addEventListener('input', () => debounce(()=>renderTab('vendedores')));
+        document.getElementById('searchProv').addEventListener('input', () => debounce(()=>renderTab('provincias')));
+        document.getElementById('searchSuc').addEventListener('input', () => debounce(()=>renderTab('sucursales')));
+        document.getElementById('searchArt').addEventListener('input', () => { STATE.page.articulos=0; debounce(renderArticulos); });
+        document.getElementById('srToggle').addEventListener('change', () => { STATE.page.articulos=0; renderArticulos(); });
+        // Sin Rotación sub-view tabs
+        document.querySelectorAll('#section-sinrot .tabs .tab').forEach(b => b.addEventListener('click', () => { STATE.srView = b.dataset.srview; renderSinRot(); }));
+        document.getElementById('searchSRPm').addEventListener('input', () => debounce(renderSRPMs));
+        document.getElementById('searchSROport').addEventListener('input', () => debounce(renderSROport));
+        document.getElementById('oportTopN').addEventListener('change', renderSROport);
+        document.getElementById('oportRecency').addEventListener('change', renderSROport);
+        document.getElementById('searchSRSub').addEventListener('input', () => debounce(renderSRSubcat));
+        document.getElementById('searchBucket').addEventListener('input', () => debounce(renderSRBucket));
+        document.getElementById('bucketFilter').addEventListener('change', renderSRBucket);
+        // Top alert banner
+        renderAlertBanner();
+        document.getElementById('searchCruce').addEventListener('input', () => debounce(renderCruce));
+        document.getElementById('cruceMode').addEventListener('change', renderCruce);
+        // Multi-selects ya conectados por buildMultiSelect; sólo los single-selects:
+        ['filterProv','filterCat'].forEach(id => document.getElementById(id).addEventListener('change', onFilterChange));
+        document.getElementById('loader').style.display = 'none';
+    }, 50);
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+</script>
+</body>
+</html>

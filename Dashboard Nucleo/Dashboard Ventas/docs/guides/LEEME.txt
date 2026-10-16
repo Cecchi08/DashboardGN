@@ -1,0 +1,33 @@
+DASHBOARD VENTAS NUCLEO - GUIA RAPIDA
+======================================
+
+La estructura del proyecto y los comandos están documentados en README.md.
+
+ACTUALIZAR DATOS
+----------------
+1. Copiá las exportaciones Excel en docs/data/input/.
+2. Conservá allí todos los archivos anuales de ventas requeridos por el merge.
+3. Ejecutá scripts/windows/actualizar.bat (Windows) o
+   scripts/windows/actualizar.command (macOS).
+4. Revisá los dashboards en dist/local/ y las versiones autónomas en
+   dist/standalone/.
+
+PUBLICAR
+--------
+- Azure: scripts/windows/subir_a_azure.bat
+- Cloudflare y GitHub Pages: scripts/windows/subir_a_la_nube.bat
+- Credenciales locales: config/.azure-config.json y
+  config/.cloudflare-config.json. No compartir estos archivos.
+
+CARPETAS PRINCIPALES
+--------------------
+- docs/data/input/       Excel de entrada.
+- docs/data/archive/     Excel históricos u obsoletos.
+- data/processed/        Datos generados para los dashboards.
+- data/cache/excel/      Caché de lectura de Excel.
+- src/templates/         Plantilla fuente de los dashboards.
+- src/vendor/            Librerías de terceros.
+- scripts/               Actualización, build, deploy y accesos directos.
+- dist/                  Dashboards y paquetes generados.
+- docs/manuals/          Manuales de usuario.
+- docs/guides/           Guías operativas y de publicación.

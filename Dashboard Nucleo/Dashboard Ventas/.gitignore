@@ -1,0 +1,18 @@
+# Local credentials and deployment settings
+config/*.json
+
+# Business data and generated datasets
+docs/data/input/*.xlsx
+docs/data/archive/*.xlsx
+data/processed/*
+data/cache/
+
+# Build output and local caches
+dist/
+.cache/
+.wrangler/
+__pycache__/
+*.py[cod]
+~$*.xlsx
+.~lock.*
+*.tmp

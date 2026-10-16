@@ -1,0 +1,7 @@
+Stock aging GN desde power Bi
+
+Ventas grupo nucleo/ detalle desde power bi
+
+Ajecutar el archivo actualizar.bat  ***  Importante desactivar Norton ***
+
+y despues ejecutar el archivo subir_a_nube para subir a claudflare  ***Importante desactivar Norton ***

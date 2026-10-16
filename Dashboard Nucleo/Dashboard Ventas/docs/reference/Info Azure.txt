@@ -1,0 +1,5 @@
+a1c83c1403c51ced73e7cf32864c9d48256835228b295c3b12b2af7f7d536e4507-c544ffa2-03fc-4340-8c70-e39e405293b300f06310f572020f
+
+https://lemon-sand-0f572020f.7.azurestaticapps.net/.auth/login/aad/callback
+
+Client secret: [REDACTED — rotate this credential]

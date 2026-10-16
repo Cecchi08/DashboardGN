@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cotizador & Catálogo</title>
+<!-- APP_STYLES -->
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🛒 Cotizador & Catálogo</h1>
+    <small id="meta-info">Cargando datos...</small>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <label style="display:flex; gap:6px; align-items:center; font-size:12px; color:var(--muted);">
+      TC USD
+      <input type="number" id="tipo-cambio" step="0.01" min="0" placeholder="0.00" style="width:100px; padding:6px 8px;">
+    </label>
+    <button class="btn secondary" id="help-btn">Guía</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="catalogo" class="active">1. Explorar catálogo</button>
+  <button data-tab="cotizacion">2. Armar cotización <span id="cart-count" class="badge">0</span></button>
+  <button data-tab="listado">3. Listado de precios (PDF)</button>
+</nav>
+
+<main>
+
+  <!-- ==================== CATÁLOGO ==================== -->
+  <section id="tab-catalogo" class="tab-panel active">
+    <div class="layout">
+      <aside>
+        <div class="panel">
+          <h3>Filtros</h3>
+          <div class="field">
+            <label>Buscar (varias palabras)</label>
+            <input type="text" id="f-text" placeholder="Ej: notebook hp 16gb">
+            <div style="font-size:11px; color:var(--muted); margin-top:3px;">Separá con espacios o <code>+</code>. Tienen que aparecer todas.</div>
+          </div>
+          <div class="field">
+            <label>Categoría</label>
+            <select id="f-categoria"><option value="">Todas</option></select>
+          </div>
+          <div class="field">
+            <label>Subcategoría</label>
+            <select id="f-subcategoria"><option value="">Todas</option></select>
+          </div>
+          <div class="field">
+            <label>Marca</label>
+            <select id="f-marca"><option value="">Todas</option></select>
+          </div>
+          <div class="field">
+            <label>Depósito</label>
+            <select id="f-deposito"><option value="">Todos</option></select>
+          </div>
+          <div class="field">
+            <label class="chk"><input type="checkbox" id="f-stock"> Solo con stock físico</label>
+            <label class="chk"><input type="checkbox" id="f-con-precio"> Solo con precio cargado</label>
+            <label class="chk"><input type="checkbox" id="f-show-pot"> Mostrar potencial bajo físico</label>
+          </div>
+          <button class="btn secondary" id="reset-filters" style="width:100%; margin-top:8px;">Limpiar filtros</button>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <h3>Columnas a mostrar</h3>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="categoria" checked> Categoría</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="subCategoria"> Subcategoría</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="marca" checked> Marca</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="codigo" checked> Código</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="articulo" checked> Artículo</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="fisico" checked> Stock físico</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="potencial"> Potencial</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="lista5" checked> Lista 5 (precio)</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="lista8" checked> Lista 8 (precio)</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="iva" checked> IVA %</label>
+          <label class="chk"><input type="checkbox" class="col-toggle" data-col="pm"> PM (vendedor)</label>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <h3>Moneda para visualizar</h3>
+          <div class="field">
+            <select id="f-moneda">
+              <option value="pesos">Pesos</option>
+              <option value="dolares">Dólares</option>
+            </select>
+          </div>
+        </div>
+      </aside>
+
+      <div>
+        <div class="toolbar">
+          <span class="count" id="cat-count">–</span>
+          <span id="aging-legend-host"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="add-selected">➕ Agregar seleccionados a la cotización</button>
+        </div>
+        <div class="scroll">
+          <table id="cat-table">
+            <thead><tr id="cat-head"></tr></thead>
+            <tbody id="cat-body"></tbody>
+          </table>
+          <div class="empty" id="cat-empty" style="display:none;">Sin resultados con los filtros actuales.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== COTIZACIÓN ==================== -->
+  <section id="tab-cotizacion" class="tab-panel">
+    <div class="panel" style="margin-bottom:14px;">
+      <h3>Datos de la cotización</h3>
+      <div class="quote-grid">
+        <div class="field"><label>Cliente</label><input type="text" id="q-cliente" placeholder="Nombre / Razón social"></div>
+        <div class="field"><label>Email del cliente</label><input type="email" id="q-email" placeholder="cliente@empresa.com"></div>
+        <div class="field"><label>Teléfono</label><input type="tel" id="q-telefono"></div>
+        <div class="field"><label>CUIT / DNI</label><input type="text" id="q-cuit"></div>
+        <div class="field"><label>Lista de precios</label>
+          <select id="q-lista"><option value="lista5">Lista 5</option><option value="lista8">Lista 8</option></select>
+        </div>
+        <div class="field"><label>Moneda</label>
+          <select id="q-moneda"><option value="pesos">Pesos</option><option value="dolares" selected>Dólares</option></select>
+        </div>
+        <div class="field"><label>Descuento (%)</label><input type="number" id="q-descuento" min="0" max="100" step="0.1" value="0"></div>
+        <div class="field"><label>Validez (días)</label><input type="number" id="q-validez" min="1" value="7"></div>
+        <div class="field" style="grid-column: 1/-1;"><label>Observaciones</label>
+          <textarea id="q-obs" rows="2" placeholder="Condiciones, forma de pago, plazo de entrega..."></textarea>
+        </div>
+        <div class="field"><label>Vendedor</label><input type="text" id="q-vendedor"></div>
+        <div class="field"><label>Email remitente</label><input type="email" id="q-remitente" placeholder="vendedor@empresa.com"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <h3 style="margin:0; flex:1;">Artículos de la cotización <span id="q-item-count" class="badge">0</span></h3>
+        <button class="btn secondary" id="q-add-from-cat">Agregar desde catálogo</button>
+        <button class="btn secondary" id="q-clear">Vaciar</button>
+      </div>
+      <div class="scroll" style="max-height: 45vh;">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th><th>Artículo</th><th>Stock</th><th style="text-align:right;">Precio U.</th><th style="text-align:right;">IVA %</th><th style="width:80px; text-align:right;">Cant.</th><th style="text-align:right;">Subtotal</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="q-body"></tbody>
+        </table>
+        <div class="empty" id="q-empty">Todavía no agregaste artículos. Vuelve al <b>Catálogo</b> y seleccioná lo que quieras cotizar.</div>
+      </div>
+      <div style="margin-top:12px; text-align:right;">
+        <div>Subtotal: <b id="q-subtotal">0</b></div>
+        <div>Descuento: <b id="q-desc-importe">0</b></div>
+        <div>IVA: <b id="q-iva-importe">0</b></div>
+        <div style="font-size:18px; margin-top:6px;">Total c/IVA: <b id="q-total">0</b></div>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-top:12px;">
+      <span class="spacer"></span>
+      <button class="btn secondary" id="q-preview">👁 Vista previa</button>
+      <button class="btn ok" id="q-pdf">📄 Guardar PDF</button>
+      <button class="btn" id="q-email">✉ Enviar por email</button>
+    </div>
+  </section>
+
+  <!-- ==================== LISTADO DE PRECIOS ==================== -->
+  <section id="tab-listado" class="tab-panel">
+    <div class="layout">
+      <aside>
+        <div class="panel">
+          <h3>Configuración del listado</h3>
+          <div class="field"><label>Lista a mostrar</label>
+            <select id="l-lista"><option value="lista5">Lista 5</option><option value="lista8">Lista 8</option></select>
+          </div>
+          <div class="field"><label>Moneda</label>
+            <select id="l-moneda"><option value="pesos">Pesos</option><option value="dolares">Dólares</option></select>
+          </div>
+          <div class="field"><label>Título del documento</label>
+            <input type="text" id="l-titulo" value="Listado de precios">
+          </div>
+          <div class="field"><label>Empresa</label>
+            <input type="text" id="l-empresa" placeholder="Nombre de tu empresa">
+          </div>
+          <div class="field">
+            <label>Buscar (varias palabras)</label>
+            <input type="text" id="lf-text" placeholder="Ej: udimm 16 ddr4">
+            <div style="font-size:11px; color:var(--muted); margin-top:3px;">Separá con espacios o <code>+</code>. Tienen que aparecer todas.</div>
+          </div>
+          <div class="field">
+            <label>Categoría</label>
+            <div class="multiselect" id="lf-categoria-ms">
+              <button type="button" class="multiselect-toggle"><span class="ms-summary">Todas</span><span class="multiselect-arrow">▾</span></button>
+              <div class="multiselect-panel collapsed">
+                <input type="text" class="ms-search" placeholder="Buscar categoría...">
+                <div class="ms-actions"><a class="ms-all">Todas</a><a class="ms-none">Ninguna</a></div>
+                <div class="ms-options"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Subcategoría</label>
+            <div class="multiselect" id="lf-subcategoria-ms">
+              <button type="button" class="multiselect-toggle"><span class="ms-summary">Todas</span><span class="multiselect-arrow">▾</span></button>
+              <div class="multiselect-panel collapsed">
+                <input type="text" class="ms-search" placeholder="Buscar subcategoría...">
+                <div class="ms-actions"><a class="ms-all">Todas</a><a class="ms-none">Ninguna</a></div>
+                <div class="ms-options"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Marca</label><select id="lf-marca"><option value="">Todas</option></select></div>
+          <label class="chk"><input type="checkbox" id="lf-con-stock"> Solo con stock físico</label>
+          <label class="chk"><input type="checkbox" id="lf-con-precio" checked> Solo con precio cargado</label>
+          <label class="chk"><input type="checkbox" id="lf-solo-sel"> Ver solo seleccionados</label>
+          <label class="chk"><input type="checkbox" id="lf-show-pot"> Mostrar potencial bajo físico</label>
+        </div>
+      </aside>
+      <div>
+        <div class="toolbar">
+          <span class="count" id="list-count">–</span>
+          <span class="count" id="list-sel-count"></span>
+          <span class="spacer"></span>
+          <button class="btn secondary" id="l-clear-sel">Limpiar selección</button>
+          <button class="btn secondary" id="l-preview">👁 Vista previa</button>
+          <button class="btn ok" id="l-pdf">📄 Exportar a PDF</button>
+          <button class="btn" id="l-email">✉ Enviar por email</button>
+        </div>
+        <div class="scroll">
+          <table id="list-table">
+            <thead id="list-head"></thead>
+            <tbody id="list-body"></tbody>
+          </table>
+          <div class="empty" id="list-empty" style="display:none;">Sin resultados.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Print target for PDF generation -->
+<div id="print-area" class="print-area"></div>
+
+<!-- List choice dialog (when both prices are visible) -->
+<dialog id="list-choice-dlg">
+  <div class="dialog-head">
+    <b>¿Con qué lista querés cotizar?</b>
+  </div>
+  <div class="dialog-body">
+    <p>Elegiste artículos con ambos precios visibles. Seleccioná qué lista usar para esta cotización:</p>
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:12px;">
+      <button class="btn" data-choice="lista5" style="padding:14px 28px; font-size:15px;">Lista 5</button>
+      <button class="btn" data-choice="lista8" style="padding:14px 28px; font-size:15px;">Lista 8</button>
+    </div>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn secondary" data-choice="cancel">Cancelar</button>
+  </div>
+</dialog>
+
+<!-- Help dialog -->
+<dialog id="help-dlg">
+  <div class="dialog-head">
+    <b>Guía rápida</b>
+    <button class="btn secondary" onclick="document.getElementById('help-dlg').close()">Cerrar</button>
+  </div>
+  <div class="dialog-body">
+    <ol>
+      <li><b>Catálogo</b>: filtrá por categoría, marca, depósito o texto. Elegí qué columnas querés ver (stock, lista 5, lista 8, etc.) y la moneda. Marcá los artículos que quieras y hacé clic en <i>Agregar a la cotización</i>.</li>
+      <li><b>Cotización</b>: completá los datos del cliente, elegí <i>Lista 5</i> o <i>Lista 8</i> y la moneda. Ajustá cantidades y descuento. Luego <i>Guardar PDF</i> o <i>Enviar por email</i>.</li>
+      <li><b>Listado de precios</b>: elegí la lista (5 o 8), filtros y exportá a PDF. También lo podés enviar por mail.</li>
+    </ol>
+    <p><b>Aging</b>: el badge de color al lado del código indica el rango de antigüedad del bucket que concentra la mayor parte del stock (verde = fresco, rojo = más viejo). Es solo informativo en pantalla; <b>no aparece</b> en los PDFs ni en el listado para clientes.</p>
+    <p><b>PDF</b>: se genera con el diálogo de impresión del navegador. Elegí <i>Guardar como PDF</i> como destino.</p>
+    <p><b>Email</b>: se abre tu cliente de correo con el texto precargado. Adjuntá el PDF que descargaste.</p>
+  </div>
+</dialog>
+
+<!-- APP_SCRIPT -->
+</body>
+</html>
