@@ -55,3 +55,17 @@
     ]
   }
 }
+
+
+repo="$HOME/DashboardGN"
+
+if [ ! -d "$repo/.git" ]; then
+  git clone https://github.com/Cecchi08/DashboardGN.git "$repo"
+fi
+
+mkdir -p "$repo/Dashboard Nucleo/Dashboard Ventas/docs/data/input"
+python3 -m zipfile -e "$HOME/ventas-input.zip" "$repo/Dashboard Nucleo/Dashboard Ventas/docs/data/input"
+
+cd "$repo"
+docker compose up --build -d
+docker compose ps

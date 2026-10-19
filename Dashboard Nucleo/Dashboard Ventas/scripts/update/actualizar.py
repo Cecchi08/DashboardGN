@@ -177,6 +177,7 @@ CACHE_VERSION = 1  # bump si cambia el shape de lo que devuelve read_transaction
 
 def _read_transactions_raw(xlsx_path):
     """Read Detalle xlsx, return list of (fecha, row_dict)."""
+    print(f"  Leyendo {xlsx_path.name}...", flush=True)
     wb = openpyxl.load_workbook(str(xlsx_path), read_only=True, data_only=True)
     ws = wb[wb.sheetnames[0]]
     rows_iter = ws.iter_rows(values_only=True)
@@ -184,7 +185,11 @@ def _read_transactions_raw(xlsx_path):
     idx_header = {c: i for i, c in enumerate(header)}
     out = []
     min_d, max_d = None, None
+    scanned = 0
     for r in rows_iter:
+        scanned += 1
+        if scanned % 50000 == 0:
+            print(f"    {xlsx_path.name}: {scanned:,} filas revisadas", flush=True)
         if r is None or all(v is None for v in r):
             continue
         ifec = idx_header.get('Fecha')
@@ -196,6 +201,8 @@ def _read_transactions_raw(xlsx_path):
         out.append((fec.date(), r, header))
         if min_d is None or fec.date() < min_d: min_d = fec.date()
         if max_d is None or fec.date() > max_d: max_d = fec.date()
+    wb.close()
+    print(f"    {xlsx_path.name}: terminado ({len(out):,} transacciones)", flush=True)
     return out, min_d, max_d
 
 def read_transactions(xlsx_path, use_cache=True):

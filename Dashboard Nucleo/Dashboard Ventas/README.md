@@ -20,7 +20,7 @@ Durante la construcción de la imagen, un paso auxiliar de Python conserva el pr
 Desde la raíz del repositorio:
 
 ```sh
-docker compose up --build -d ventas-api ventas-web
+docker-compose up --build -d ventas-api ventas-web
 ```
 
 - Frontend: `http://IP-DE-LA-COMPUTADORA:5321`

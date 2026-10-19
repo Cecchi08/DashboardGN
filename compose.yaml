@@ -1,4 +1,4 @@
-name: dashboard-nucleo
+version: "3.3"
 
 services:
   cotizador-api:
@@ -19,8 +19,7 @@ services:
       context: ./Dashboard Nucleo/Dashboard Cotizador/frontend
     restart: unless-stopped
     depends_on:
-      cotizador-api:
-        condition: service_healthy
+      - cotizador-api
     ports:
       - "1235:80"
 
@@ -42,7 +41,6 @@ services:
       context: ./Dashboard Nucleo/Dashboard Ventas/frontend
     restart: unless-stopped
     depends_on:
-      ventas-api:
-        condition: service_healthy
+      - ventas-api
     ports:
       - "5321:80"

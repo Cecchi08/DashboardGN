@@ -17,7 +17,7 @@ src/data/      Lectura y normalización de los archivos fuente
 Desde la raíz del repositorio:
 
 ```sh
-docker compose up --build -d cotizador-api cotizador-web
+docker-compose up --build -d cotizador-api cotizador-web
 ```
 
 - Frontend: `http://IP-DE-LA-COMPUTADORA:1235`

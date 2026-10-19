@@ -4,7 +4,7 @@ COPY backend/data-builder/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY scripts/update/actualizar.py ./scripts/update/actualizar.py
 COPY docs/data/input ./docs/data/input
-RUN BUILD_STANDALONE=0 BUILD_DASHBOARD_HTML=0 python scripts/update/actualizar.py
+RUN BUILD_STANDALONE=0 BUILD_DASHBOARD_HTML=0 python -u scripts/update/actualizar.py
 
 FROM node:22-alpine AS dependencies
 WORKDIR /app
